@@ -1,0 +1,270 @@
+#!/usr/bin/python
+
+import datetime
+import xml.dom.minidom
+
+#===============================================================================
+# Generic data-holding classes
+#===============================================================================
+
+class Enumerator:
+    def __init__(self, actualvalue, enumlabel, descriptions):
+        self.n = len(descriptions)
+        self.value = int(actualvalue)
+        if self.value < 0 or self.value >= self.n:
+            raise ValueError, ("Enumerator of type %s created with value "
+                "%d but range is 0-%d" % (enumlabel,
+                                          actualvalue,
+                                          self.n))
+        self.descriptions = descriptions
+    def to_human_string(self):
+        return self.descriptions[self.value]
+    def to_string(self):
+        return str(self.value)
+
+class Holder:
+    def __init__(self, xml_entity_name, datetime_format="%Y-%m-%d %H:%M:%S.%f"):
+        self.registeredfieldnums = []
+        self.registeredfieldnames = []
+        self.fieldnames = {}
+        self.fieldnums = {}
+        self.sqltype = {}
+        self.data = {}
+        self.description = {}
+        self.datetime_format = datetime_format
+        self.earliest_datetime = datetime.datetime(1900, 1, 1, 0, 0, 0, 0)
+        self.xml_entity_name = xml_entity_name
+    def dump(self):
+        print "DUMP:"
+        print "- registered fieldnums:", self.registeredfieldnums
+        print "- registered fieldnames:", self.registeredfieldnames
+        print "- map 1:", self.fieldnames
+        print "- map 2:", self.fieldnums
+        print "- sqltype:", self.sqltype
+        print "- description:", self.description
+        print "- data:", self.data
+    def add_field(self, fieldnum, fieldname, default, sqltype, description):
+        if fieldnum in self.registeredfieldnums:
+            print "Error: duplicate registration of field number %d" % (fieldnum)
+            return
+        if fieldname in self.registeredfieldnames:
+            print "Error: duplicate registration of field name %s" % (fieldname)
+            return
+        self.registeredfieldnums.append(fieldnum)
+        self.registeredfieldnames.append(fieldname)
+        self.fieldnames[fieldnum] = fieldname
+        self.fieldnums[fieldname] = fieldnum # reverse dictionary
+        self.sqltype[fieldnum] = sqltype.upper()
+        self.data[fieldnum] = default
+        self.description[fieldnum] = description
+    def set(self, fieldnum, data):
+        if not(fieldnum in self.registeredfieldnums):
+            print "Error: attempting to set unregistered field number %d" % (fieldnum)
+            self.dump()
+            return
+        self.data[fieldnum] = data
+    def get(self, fieldnum):
+        if not(fieldnum in self.registeredfieldnums):
+            print "Error: attempting to get unregistered field number %d" % (fieldnum)
+            return
+        return self.data[fieldnum]
+        
+    def csv_from_list(self, l):
+        s = ""
+        for i in range(len(l)):
+            if i > 0:
+                s += ","
+            s += self.to_human_string(l[i])
+        return s
+    def csv_header(self):
+        return self.csv_from_list( self.fieldnames.values() )
+    def csv_data(self):
+        return self.csv_from_list( self.data.values() )
+        
+    def sql_needs_quote(self, var):
+        if isinstance(var, str):
+            return True
+        if isinstance(var, Enumerator):
+            return True
+        return False
+    def sql_create(self, tablename):
+        sql = "CREATE TABLE " + tablename + " ("
+        firstone = True
+        for f in self.data.keys():
+            if not firstone:
+                sql += ", "
+            firstone = False
+            sql += self.fieldnames[f] + " " + self.sqltype[f]
+        sql += ")"
+        return sql
+    def sql_insert_values(self):
+        sql = "("
+        firstone = True
+        for d in self.data.values():
+            if not firstone:
+                sql += ", "
+            firstone = False
+            if self.sql_needs_quote(d):
+                sql += "'"
+            sql += self.to_human_string(d)
+            if self.sql_needs_quote(d):
+                sql += "'"
+        sql += ")"
+        return sql
+    def sql_insert_fields(self):
+        sql = "("        
+        firstone = True
+        for f in self.fieldnames.values():
+            if not firstone:
+                sql += ", "
+            firstone = False
+            sql += f
+        sql += ")"
+        return sql
+    def sql_insert_full(self, tablename):
+        sql = ("INSERT INTO " + tablename + " "
+               + self.sql_insert_fields()
+               + " VALUES " + self.sql_insert_values() )
+        # For a multiple-value insert, you do
+        # INSERT INTO tablename (col1, col2, col3...) VALUES (a1,a2,a3),(b1,b2,b3),(c1,c2,c3)
+        # ... at least in MySQL: http://dev.mysql.com/doc/refman/5.5/en/insert.html
+        return sql
+    
+    def human_report(self):
+        for f in self.data.keys():
+            print "%s: %s" % (self.description[f], self.to_human_string(self.data[f]))
+            
+    def to_string(self, var):
+        if isinstance(var, bool):
+            return "1" if var else "0"
+        if isinstance(var, datetime.datetime):
+            return var.strftime(self.datetime_format)
+        if isinstance(var, Enumerator):
+            return var.to_string()
+        return str(var)
+    def to_human_string(self, var):
+        if isinstance(var, bool):
+            return "Y" if var else "N"
+        if isinstance(var, datetime.datetime):
+            return var.strftime(self.datetime_format)
+        if isinstance(var, Enumerator):
+            return var.to_human_string()
+        return self.to_string(var)
+    def from_string(self, s, oldvar):
+        if isinstance(oldvar, bool):
+            return bool(int(s))
+        if isinstance(oldvar, datetime.datetime):
+            return datetime.datetime.strptime(s, self.datetime_format)
+        if isinstance(oldvar, Enumerator):
+            return oldvar.__class__(int(s))
+            # http://stackoverflow.com/questions/622161/python-reflection-and-type-conversion
+        return type(oldvar)(s)
+        # autoconvert from string to the type of oldvar
+        
+    def xml_out(self):
+        x = "<%s>" % (self.xml_entity_name)
+        for f in self.data.keys():
+            x += "<%s>" % (self.fieldnames[f])
+            x += "%s" % (self.to_string(self.data[f]))
+            x += "</%s>" % (self.fieldnames[f])
+        x += "</%s>" % (self.xml_entity_name)
+        return x
+    def xml_in(self, x):
+        dom = xml.dom.minidom.parseString(x)
+        for fieldname in self.fieldnames.values():
+            x = dom.getElementsByTagName(fieldname)[0]
+            y = ""
+            for node in x.childNodes:
+                if node.nodeType == node.TEXT_NODE:
+                    y += node.data
+                    # y is a string
+            fieldnum = self.fieldnums[fieldname]
+            self.data[fieldnum] = self.from_string(y, self.data[fieldnum])
+            
+def get_sql_for_holder_list(tablename, holders):
+    if not holders:
+        return ""
+    sql = "INSERT INTO " + tablename + " " + holders[0].sql_insert_fields() + " VALUES "
+    firstone = True
+    for h in holders:
+        if not firstone:
+            sql += ", "
+        firstone = False
+        sql += h.sql_insert_values()
+    return sql;
+
+#===============================================================================
+# Specialization
+#===============================================================================
+
+class SampleEnum(Enumerator):
+    first, second, third = range(3)
+    def __init__(self, actualvalue):
+        Enumerator.__init__(self,
+                            actualvalue,
+                            "SampleEnum",
+                            ["one", "two", "three"])
+
+class Specimen(Holder):
+    name, age, height, datetime, is_happy, enumtest = range(6)
+    def __init__(self, xml_entity_name="Specimen"):
+        Holder.__init__(self, xml_entity_name)
+        Holder.add_field(self, self.name, "Name", "", "VARCHAR(255)", "Subject name")
+        Holder.add_field(self, self.age, "Age", 0, "INT", "Subject age")
+        Holder.add_field(self, self.height, "Height", 0.0, "FLOAT(3,2)", "Subject height (cm)")
+        Holder.add_field(self, self.datetime, "DateTime", self.earliest_datetime, "DATETIME()", "Date/time")
+        Holder.add_field(self, self.is_happy, "IsHappy", True, "TINYINT()", "Is it happy")
+        Holder.add_field(self, self.enumtest, "EnumTest", SampleEnum(1), "VARCHAR(255)", "What does it enumerate")
+
+#===============================================================================
+# Main
+#===============================================================================
+
+if __name__ == "__main__":
+    h = Specimen()
+    h.dump()
+
+    print "------------------------------------------------------"
+    print "Starting state"
+    print "------------------------------------------------------"
+    h.human_report()
+
+    h.set(Specimen.name, "fish")
+    h.set(Specimen.age, 37)
+    h.set(Specimen.height, 8.4)
+    h.set(Specimen.datetime, datetime.datetime.now())
+
+    print "------------------------------------------------------"
+    print "After setting data"
+    print "------------------------------------------------------"
+    print "Requesting name:", h.get(Specimen.name)
+    print "Requesting age:", h.get(Specimen.age)
+    print "Requesting height:", h.get(Specimen.height)
+    print "Requesting datetime:", h.get(Specimen.datetime)
+    print "Requesting is_happy:", h.get(Specimen.is_happy)
+    print
+    print h.csv_header()
+    print h.csv_data()
+    print
+    h.dump()
+    print
+    h.human_report()
+    print
+    print h.sql_create("mytable")
+    print
+    print h.sql_insert_full("mytable")
+    print
+    a = h.xml_out()
+    print a
+    print
+    
+    print "------------------------------------------------------"
+    print "After copying via XML"
+    print "------------------------------------------------------"
+    h2 = Specimen()
+    h2.xml_in(a)
+    h2.human_report()
+    h2.dump()
+    
+    print get_sql_for_holder_list("tablethingy", [h, h2])
+    

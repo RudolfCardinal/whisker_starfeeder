@@ -1,0 +1,11 @@
+# PyInstaller
+dist/*
+build/*
+*.spec
+
+# Working data
+*.sqlite3
+
+# Python residue
+__pycache__/
+*.py[cod]
