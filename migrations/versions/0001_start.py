@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises: 
-Create Date: 2015-12-12 06:12:30.702361
+Create Date: 2015-12-12 09:01:46.255756
 
 """
 
@@ -26,7 +26,7 @@ def upgrade():
     sa.Column('port', sa.Integer(), nullable=True),
     sa.Column('wcm_prefix', sa.String(), nullable=True),
     sa.Column('rfid_effective_time_s', sa.Float(), nullable=True),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_master_config'))
     )
     op.create_table('rfid_config',
     sa.Column('port', sa.String(), nullable=True),
@@ -42,8 +42,8 @@ def upgrade():
     sa.Column('name', sa.String(), nullable=True),
     sa.Column('keep', sa.Boolean(), nullable=True),
     sa.Column('enabled', sa.Boolean(), nullable=True),
-    sa.ForeignKeyConstraint(['master_config_id'], ['master_config.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['master_config_id'], ['master_config.id'], name=op.f('fk_rfid_config_master_config_id_master_config')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_rfid_config'))
     )
     op.create_table('balance_config',
     sa.Column('port', sa.String(), nullable=True),
@@ -60,9 +60,9 @@ def upgrade():
     sa.Column('name', sa.String(), nullable=True),
     sa.Column('keep', sa.Boolean(), nullable=True),
     sa.Column('enabled', sa.Boolean(), nullable=True),
-    sa.ForeignKeyConstraint(['master_config_id'], ['master_config.id'], ),
-    sa.ForeignKeyConstraint(['reader_id'], ['rfid_config.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['master_config_id'], ['master_config.id'], name=op.f('fk_balance_config_master_config_id_master_config')),
+    sa.ForeignKeyConstraint(['reader_id'], ['rfid_config.id'], name=op.f('fk_balance_config_reader_id_rfid_config')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_balance_config'))
     )
     op.create_table('rfid_event',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -71,8 +71,8 @@ def upgrade():
     sa.Column('first_detected_at', sa.DateTime(), nullable=True),
     sa.Column('last_detected_at', sa.DateTime(), nullable=True),
     sa.Column('n_events', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['reader_id'], ['rfid_config.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['reader_id'], ['rfid_config.id'], name=op.f('fk_rfid_event_reader_id_rfid_config')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_rfid_event'))
     )
     op.create_table('mass_event',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -81,9 +81,9 @@ def upgrade():
     sa.Column('balance_id', sa.Integer(), nullable=True),
     sa.Column('at', sa.DateTime(), nullable=True),
     sa.Column('mass_kg', sa.Float(), nullable=True),
-    sa.ForeignKeyConstraint(['balance_id'], ['balance_config.id'], ),
-    sa.ForeignKeyConstraint(['reader_id'], ['rfid_config.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['balance_id'], ['balance_config.id'], name=op.f('fk_mass_event_balance_id_balance_config')),
+    sa.ForeignKeyConstraint(['reader_id'], ['rfid_config.id'], name=op.f('fk_mass_event_reader_id_rfid_config')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_mass_event'))
     )
     ### end Alembic commands ###
 

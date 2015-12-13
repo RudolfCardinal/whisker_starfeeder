@@ -30,6 +30,11 @@ ALEMBIC: migrations
 - make a revision with a specified ID
     $ alembic revision --autogenerate -m 'some message' --rev-id 6
 
+- cope with PyInstaller
+    ... rather than using Alembic to get the current revision number (which
+    involves browsing filenames, which screws up PyInstaller), let's have the
+    "create new revision" script stash the latest revision in a file.
+
 ===============================================================================
 CONFIGURATION FILES
 ===============================================================================
@@ -158,7 +163,7 @@ http://stackoverflow.com/questions/22992331/pyside-pyserial-and-threading-causes
 http://eli.thegreenplace.net/2009/08/07/a-live-data-monitor-with-python-pyqt-and-pyserial
 
 ===============================================================================
-MAIN NOTES
+SOFTWARE DESIGN
 ===============================================================================
 
 Overall software design
@@ -209,6 +214,47 @@ Thread design
   - http://doc.qt.io/qt-5/qthread.html
   - https://www.qtdeveloperdays.com/sites/default/files/David%20Johnson%20qthreads.pdf  # noqa
   - http://stackoverflow.com/questions/20324804  # particularly clear
+
+
+GENERAL PRINCIPLES
+- Must assume main/GUI thread may block in response to user action.
+  NO CRITICAL COMMUNICATION ON GUI THREAD.
+  GUI thread has Owners that own/start/stop other threads, but do no critical
+  work.
+- Owners typically need at least two other threads:
+    (1) a reader, which blocks on network/serial reading, so doesn't do
+        anything else;
+    (2) a writer, which writes, but then returns, so may be available for
+        other important work;
+    (3) if it is critical that the reader's events must be processed during
+        writing (or if writing pauses), a third, controller, thread -- but
+        if the controller wishes to block on writes (+/- read back), like
+        the Whisker controller, then this can be the same thread.
+    (General principle: writers have spare time so can be thinkers; readers do
+    nothing else but read.)
+- For Whisker, we want the task to block on immediate-socket writes, so two
+  threads should be fine.
+- For serial devices... in practice, we are not sending anything -- the RFID
+  reader reads without regular input. Not sure yet about the balance.
+  So we'll start with a two-thread model... no, this is after all slow serial
+  comms and we should be able to manage it event-wise; a three-thread model.
+
+SUMMARY OF THREADS.
+- main/GUI thread
+  also on this thread:
+    1 x WhiskerOwner
+    lots x RfidOwner
+    lots x BalanceOwner
+- 1 x whiskertaskthread: WhiskerController, WhiskerTask/WeightWhiskerTask
+    ... talks to immediate socket, does task logic
+- 1 x mainsockthread: WhiskerMainSocketListener
+    ... listens on main socket
+- lots x SerialReader/derived classes
+    ... listen to serial ports
+- lots x SerialWriter/derived classes
+    ... write to serial ports
+- lots x SerialController/derived classes
+    ... do the thinking
 
 GUI design
 - Qt, as above.
@@ -287,6 +333,27 @@ Database ORM
 Database thread safety
 - http://docs.sqlalchemy.org/en/latest/orm/contextual.html
 - http://stackoverflow.com/questions/6297404/multi-threaded-use-of-sqlalchemy
+- Essentially: use thread-local sessions.
+- OK either to hang onto a session or to create one as required:
+    http://stackoverflow.com/questions/12223335/sqlalchemy-creating-vs-reusing-a-session
+  However, probably most efficient to use a single session for a related set of
+  operations, and certainly required to use a single session within a complex
+  transaction (e.g. with savepoints).
+  Therefore, reasonable to be passing session objects around to functions.
+  However, can create as required (rather than using self.session), and that
+  saves worrying about which thread the creation occurred in.
+  Except... maybe do that for the main window, which holds a config object
+  for much of the time... actually, maybe it shouldn't (consider: someone
+  modifies the config in the database directly; should the task notice or
+  not?). No harm in having it read afresh when it needs it?
+  Oh, not sure. Let's keep the main window as it is for now.
+- Ah. Not OK: "database is locked" error!
+  https://www.sqlite.org/lockingv3.html
+  So we should release our grasp...
+  Therefore, the only "self.session" we should see is in a dialogue box
+  hierarchy.
+- That also means we need not to store ORM objects outside a session; you get
+  sqlalchemy.orm.exc.DetachedInstanceError errors.
 
 Database migrations
 - Using Alembic.
@@ -359,6 +426,9 @@ Signal processing for weight, if required
 - See http://www.swharden.com/blog/2009-01-21-signal-filtering-with-python/
 
 
+===============================================================================
+HARDWARE
+===============================================================================
 
 Physical device naming convention
 - "USB controller" = MBRose WS-2/001 RS232-to-USB interface
@@ -382,10 +452,7 @@ Lights
 - Reader "ANT" green LED lights up when (a) reader is in continuous reading
   mode AND (b) tag is being read (i.e. it flashes for a tag read).
 
-
 Insides
-- Reader "ANT" light looks to be controlled by the RFID PCB.
-  Not yet on.
 - Chips:
     Atmel ATMEGA8L 8AU 1431D
     ... this? http://www.atmel.com/images/atmel-2486-8-bit-avr-microcontroller-atmega8_l_datasheet.pdf
@@ -434,9 +501,9 @@ Software side of installation
         Best (or at least, good) terminal emulators:
             Linux: sudo minicom -s
             Windows: PuTTY
-            
+
         In one command:
-        
+
     $ minicom  --device /dev/ttyUSB1 --baudrate 9600  # untested; note also --noinit option; would it make a difference?
 
     When the RFID is communicating, 'x' resets (yielding a status message of
@@ -478,7 +545,37 @@ Software side of installation
         $ socat - /dev/ttyUSB1,cr
 
     Note in passing that QSerialPort is part of Qt5, but not standard Qt4.
-    
+
+    Minicom works. These also work:
+    TALK TO READER [except sends newline so 'c' command is interrupted immediately]
+        $ socat - /dev/ttyUSB0
+    PRETEND TO BE READER
+        $ socat -d -d -d - pty,raw,echo=0,crnl
+    TALK TO BALANCE
+        $ socat -d -d -d - /dev/ttyUSB1,cs8,nonblock=1,ixoff=0,ixon=0,ispeed=9600,ospeed=9600,raw,echo=0,crtscts=0,echoctl=1,eof=^J,parenb=1,parodd=0
+        $ # OLD VERSION OF PYSERIAL # python -m serial.tools.miniterm /dev/ttyUSB1 --baud=9600 --parity=E --lf --debug
+        $ python -m serial.tools.miniterm /dev/ttyUSB1 9600 --eol LF --develop --parity E
+    PRETEND TO BE BALANCE
+        $ socat -d -d -d - pty,raw,echo=0,crnl
+
+Problems with balance
+... very frustrating
+... flow control problem?
+... related to sending characters too fast (cf. typing in a terminal)?
+... both those things, i.e. flow control on transmission?
+... note the device is RS-485 half duplex, 2-wire, i.e. not the world's best
+... note also this: https://bytes.com/topic/python/answers/473919-pyserial-write-blocking-mode
+    ... relating to write() returning too quickly and setting flow control pins too soon
+    ... though I'm not sure we have any flow control pins whatsoever
+Maybe this would be solved by PySerial 3.0, which has explicit RS-485 support.
+    http://pyserial.readthedocs.org/en/latest/pyserial_api.html#serial.rs485.RS485Settings
+Great! Even without doing anything explicit like setting RS-485 support, it now
+seems much more reliable, i.e. works every time.
+
+===============================================================================
+MASS RECORDING LOGIC
+===============================================================================
+
 Concepts around detecting mass from an identified animal
 
 - Balances and RFID readers are paired.
@@ -510,24 +607,35 @@ Concepts around detecting mass from an identified animal
   way around. (A "free-floating" mass is useless in this context; a
   located RFID is still useful.) So we can have the balance store an FK to
   RFID reader, etc.
-  
+
 - We get a storage-heavy mess if we store RFID reader/balance names all over
   the place; better to store an FK only. But that means we must prevent
   deletion of config objects that have been used for real data. We use a 'keep'
   flag for this. Instead, the user can disable things.
   (Note that the QGroupBox is happier with 'enabled' than 'disabled', so we'll
   go with that.)
-  
-- Alembic/SQLite nuisance here: http://alembic.readthedocs.org/en/latest/batch.html
+
+- Alembic/SQLite nuisance here, re named constraints:
+  http://alembic.readthedocs.org/en/latest/batch.html
+
+- We don't necessarily have to read from the balances all the time. We could
+  trigger reading on a specific balance only for RFID_EFFECTIVE_TIME seconds
+  after an RFID is detected on its paired reader. However, to do that, we can't
+  just request an MSV for as many samples as fill that time, as the subject may
+  prolong the available time by triggering the RFID reader again. But we could
+  send a "scan until <datetime>" message from the reader to the balance;
+  if it receives that and it's not scanning, it can start; if it is already
+  scanning, it can alter the end time if necessary; if the MSV scan finishes
+  before the <datetime> then it can have another run.
+  *** add whether currently scanning or not to balance status
+  *** IMPLEMENT
 
 ===============================================================================
 TO DO
 ===============================================================================
 
+*** balance calibration: zero point and heavy point
+*** balance filtering (ASF, FMD)
 *** physical balance test
-*** balance weighing code
-*** PyInstaller
-
-*** test RFID recording logic
 *** test weighing logic
-*** test that "used" RFID/balance devices can't be deleted, and buttons reflect that
+*** animal minimum/maximum weight: best done in the database later?

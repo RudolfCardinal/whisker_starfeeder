@@ -103,6 +103,8 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         # Elements
         rfid_effective_time_label = QLabel("RFID effective time (s)")
         self.rfid_effective_time_edit = QLineEdit()
+        rfid_effective_time_explanation = QLabel(
+            "This is the time that an RFID event ‘persists’ for.")
         server_label = QLabel("Whisker server")
         self.server_edit = QLineEdit(placeholderText="typically: localhost")
         port_label = QLabel("Whisker port")
@@ -122,6 +124,7 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         lgrid = QGridLayout()
         lgrid.addWidget(rfid_effective_time_label, 0, 0, ALIGNMENT)
         lgrid.addWidget(self.rfid_effective_time_edit, 0, 1, ALIGNMENT)
+        lgrid.addWidget(rfid_effective_time_explanation, 1, 0, 1, 2, ALIGNMENT)
         logic_group.setLayout(lgrid)
 
         whisker_group = StyledQGroupBox('Whisker')
@@ -318,7 +321,7 @@ class SerialPortMixin(object):
     def __init__(self, port_options=None, allow_other_port=True,
                  baudrate_options=None, allow_other_baudrate=False,
                  bytesize_options=None, parity_options=None,
-                 stopbits_options=None):
+                 stopbits_options=None, flow_options=None):
         """
         Always helpful to have allow_other_port=True on Linux, because you can
         create new debugging ports at the drop of a hat, and the serial port
@@ -328,6 +331,7 @@ class SerialPortMixin(object):
         self.sp_allow_other_port = allow_other_port
         self.sp_baudrate_options = baudrate_options
         self.sp_allow_other_baudrate = allow_other_baudrate
+
         bytesize_map = [
             (serial.FIVEBITS, "&5"),
             (serial.SIXBITS, "&6"),
@@ -337,6 +341,7 @@ class SerialPortMixin(object):
         if bytesize_options:
             bytesize_map = [x for x in bytesize_map
                             if x[0] in bytesize_options]
+
         parity_map = [
             (serial.PARITY_NONE, "&None"),
             (serial.PARITY_EVEN, "&Even"),
@@ -344,6 +349,9 @@ class SerialPortMixin(object):
             (serial.PARITY_MARK, "Mark (rare)"),
             (serial.PARITY_SPACE, "Space (rare)"),
         ]
+        if parity_options:
+            parity_map = [x for x in parity_map if x[0] in parity_options]
+
         stopbits_map = [
             (serial.STOPBITS_ONE, "&1"),
             (serial.STOPBITS_ONE_POINT_FIVE, "1.5 (rare)"),
@@ -352,8 +360,15 @@ class SerialPortMixin(object):
         if stopbits_options:
             stopbits_map = [x for x in stopbits_map
                             if x[0] in stopbits_options]
-        if parity_options:
-            parity_map = [x for x in parity_map if x[0] in parity_options]
+
+        flow_map = [
+            (self.FLOW_NONE, "None (not advised)"),
+            (self.FLOW_XONXOFF, "&XON/XOFF software flow control"),
+            (self.FLOW_RTSCTS, "&RTS/CTS hardware flow control"),
+            (self.FLOW_DTRDSR, "&DTR/DSR hardware flow control"),
+        ]
+        if flow_options:
+            flow_map = [x for x in flow_map if x[0] in flow_options]
 
         sp_port_label = QLabel("Serial port")
         sp_baudrate_label = QLabel("Speed in bits per second")
@@ -401,16 +416,7 @@ class SerialPortMixin(object):
 
         # It's daft to use >1 method of flow control. So use a single radio.
         sp_flow_group = StyledQGroupBox("Flow control")
-        self.sp_flow_rg = RadioGroup(
-            [
-                (self.FLOW_NONE, "None (not advised)"),
-                (self.FLOW_XONXOFF,
-                 "&XON/XOFF software flow control (suboptimal)"),
-                (self.FLOW_RTSCTS, "&RTS/CTS hardware flow control (ideal)"),
-                (self.FLOW_DTRDSR, "&DTR/DSR hardware flow control"),
-            ],
-            default=self.FLOW_RTSCTS
-        )
+        self.sp_flow_rg = RadioGroup(flow_map, default=self.FLOW_RTSCTS)
         sp_flow_layout = QVBoxLayout()
         self.sp_flow_rg.add_buttons_to_layout(sp_flow_layout)
         sp_flow_group.setLayout(sp_flow_layout)
@@ -576,7 +582,12 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
             bytesize_options=[serial.EIGHTBITS],
             parity_options=[serial.PARITY_NONE, serial.PARITY_EVEN],
             stopbits_options=[serial.STOPBITS_ONE],
+            flow_options=[SerialPortMixin.FLOW_NONE,
+                          SerialPortMixin.FLOW_XONXOFF],
         )  # [4]
+        # RTS/CTS sometimes seems to break it.
+        # Manual mentions XON/XOFF only (p15), and says that its serial
+        # interface is RS-485, 2-wire, half-duplex (p4, 5).
 
         reader_map = []
         readers = (

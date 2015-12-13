@@ -15,13 +15,37 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    MetaData,
     String,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship
-Base = declarative_base()
 
 from weigh.lang import trunc_if_integer
+
+# =============================================================================
+# Constants for Alembic
+# =============================================================================
+# https://alembic.readthedocs.org/en/latest/naming.html
+
+ALEMBIC_NAMING_CONVENTION = {
+    "ix": 'ix_%(column_0_label)s',
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    # "ck": "ck_%(table_name)s_%(constraint_name)s",  # too long?
+    # ... https://groups.google.com/forum/#!topic/sqlalchemy/SIT4D8S9dUg
+    "ck": "ck_%(table_name)s_%(column_0_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s"
+}
+MASTER_META = MetaData(naming_convention=ALEMBIC_NAMING_CONVENTION)
+
+# =============================================================================
+# Base
+# =============================================================================
+# Now we declare our SQLAlchemy base.
+# Derived classes will share the specified metadata.
+
+Base = declarative_base(metadata=MASTER_META)
 
 
 # =============================================================================
@@ -45,7 +69,7 @@ class SerialPortConfigMixin(object):
     dsrdtr = Column(Boolean)
 
     def __init__(self, port='', baudrate=9600, bytesize=serial.EIGHTBITS,
-                 parity=serial.EIGHTBITS, stopbits=serial.STOPBITS_ONE,
+                 parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
                  xonxoff=False, rtscts=True, dsrdtr=False):
         self.port = port
         self.baudrate = baudrate
@@ -117,6 +141,13 @@ class RfidConfig(SerialPortConfigMixin, Base):
         self.master_config_id = kwargs.pop('master_config_id')
         self.keep = kwargs.pop('keep', False)
         self.enabled = kwargs.pop('enabled', True)
+        kwargs.setdefault('baudrate', 9600)
+        kwargs.setdefault('bytesize', serial.EIGHTBITS)
+        kwargs.setdefault('parity', serial.PARITY_NONE)
+        kwargs.setdefault('stopbits', serial.STOPBITS_ONE)
+        kwargs.setdefault('xonxoff', False)
+        kwargs.setdefault('rtscts', True)
+        kwargs.setdefault('dsrdtr', False)
         SerialPortConfigMixin.__init__(self, **kwargs)
 
     def __repr__(self):
@@ -160,6 +191,13 @@ class BalanceConfig(SerialPortConfigMixin, Base):
         self.master_config_id = kwargs.pop('master_config_id')
         self.keep = kwargs.pop('keep', False)
         self.enabled = kwargs.pop('enabled', True)
+        kwargs.setdefault('baudrate', 9600)
+        kwargs.setdefault('bytesize', serial.EIGHTBITS)
+        kwargs.setdefault('parity', serial.PARITY_EVEN)
+        kwargs.setdefault('stopbits', serial.STOPBITS_ONE)
+        kwargs.setdefault('xonxoff', True)
+        kwargs.setdefault('rtscts', False)
+        kwargs.setdefault('dsrdtr', False)
         SerialPortConfigMixin.__init__(self, **kwargs)
 
     def __repr__(self):
@@ -303,7 +341,7 @@ class RfidEvent(Base):
             ).first()  # There should be no more than one!
         )
 
-    @staticmethod
+    @classmethod
     def record_rfid_detection(cls, session, rfid_single_event,
                               rfid_effective_time_s):
         reader_id = rfid_single_event.reader_id

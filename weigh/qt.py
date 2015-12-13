@@ -333,6 +333,7 @@ class GenericListModel(QAbstractListModel):
         return None
 
     def item_deletable(self, rowindex):
+        """Override this if you need to prevent rows being deleted."""
         return True
 
 

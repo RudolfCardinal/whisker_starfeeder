@@ -9,3 +9,7 @@ build/*
 # Python residue
 __pycache__/
 *.py[cod]
+
+# Development versions of stuff
+thirdparty/
+

@@ -30,6 +30,29 @@ def trunc_if_integer(n):
 
 
 # =============================================================================
+# Class to store last match of compiled regex
+# =============================================================================
+# Based on http://stackoverflow.com/questions/597476/how-to-concisely-cascade-through-multiple-regex-statements-in-python  # noqa
+
+class CompiledRegexMemory(object):
+    def __init__(self):
+        self.last_match = None
+
+    def match(self, compiled_regex, text):
+        self.last_match = compiled_regex.match(text)
+        return self.last_match
+
+    def search(self, compiled_regex, text):
+        self.last_match = compiled_regex.search(text)
+        return self.last_match
+
+    def group(self, n):
+        if not self.last_match:
+            return None
+        return self.last_match.group(n)
+
+
+# =============================================================================
 # Name of calling class/function, for status messages
 # =============================================================================
 

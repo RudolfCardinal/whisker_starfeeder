@@ -12,6 +12,7 @@ from weigh.serial_controller import (
     LF,
     NO_BYTES,
     SerialController,
+    SerialOwner,
 )
 from weigh.models import RfidSingleEvent
 
@@ -40,8 +41,8 @@ RESET_PAUSE_MS = 200
 def ztag_to_rfid_number(ztag):
     """
     Parses a Z-tag from the RFID reader. Examples:
-        Z5A2080A70C2C0001
-        Z1FC68BAD50870001
+        Z5A2080A70C2C0001 [= RFID 208210000479322; 208 = Denmark]
+        Z1FC68BAD50870001 [= RFID 900046000071672; 900 = user-assigned]
 
     References:
     - [6], though very hard to read; ignored
@@ -117,10 +118,9 @@ class RfidController(SerialController):
     """
     rfid_received = Signal(RfidSingleEvent)
 
-    def __init__(self, rfid_config, parent=None):
-        super().__init__(rfid_config.get_serial_args(), parent=parent,
-                         name=rfid_config.name, rx_eol=CRLF, tx_eol=NO_BYTES)
-        self.rfid_config = rfid_config
+    def __init__(self, reader_id, **kwargs):
+        super().__init__(**kwargs)
+        self.reader_id = reader_id
         self.swallow_next_stopped_read = False
         self.reset_timer = QTimer()
         self.reset_timer.timeout.connect(self.reset_2)
@@ -129,7 +129,10 @@ class RfidController(SerialController):
         self.reset()
 
     def on_stop(self):
-        self.reset()
+        self.send(CMD_NO_OP_CANCEL)  # something to cancel any ongoing read
+        self.finished.emit()
+        # Inelegant! Risk the writer thread will be terminated before it
+        # sends this command. Still, ho-hum.
 
     def reset(self):
         self.info("Resetting RFID: phase 1")
@@ -189,7 +192,28 @@ class RfidController(SerialController):
             # WATCH OUT. Signal "int" values are 32-bit. So we should
             # emit a Python object instead.
             rfid_single_event = RfidSingleEvent(
-                reader_id=self.rfid_config.id,
+                reader_id=self.reader_id,
                 rfid=rfid_number,
                 timestamp=timestamp)
             self.rfid_received.emit(rfid_single_event)
+
+
+class RfidOwner(SerialOwner):
+    reset_requested = Signal()
+
+    def __init__(self, rfid_config, parent=None):
+        # Do not keep a copy of rfid_config; it will expire.
+        super().__init__(
+            serial_args=rfid_config.get_serial_args(),
+            parent=parent,
+            name=rfid_config.name,
+            rx_eol=CRLF,
+            tx_eol=NO_BYTES,
+            controller_class=RfidController,
+            controller_kwargs=dict(
+                reader_id=rfid_config.id
+            ))
+        self.reset_requested.connect(self.controller.reset)
+
+    def reset(self):
+        self.reset_requested.emit()

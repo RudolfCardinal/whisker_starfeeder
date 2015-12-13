@@ -33,12 +33,12 @@ from PySide.QtGui import (
     QVBoxLayout,
 )
 
-from weigh.db import ensure_migration_is_latest, get_database_session
+from weigh.db import ensure_migration_is_latest, session_thread_scope
 from weigh.debug_qt import enableSignalDebuggingSimply
-from weigh.balance import BalanceController
+from weigh.balance import BalanceOwner
 from weigh.gui import MasterConfigWindow, StyledQGroupBox
 from weigh.models import MasterConfig
-from weigh.rfid import RfidController
+from weigh.rfid import RfidOwner
 from weigh.task import WeightWhiskerTask
 from weigh.whisker_qt import WhiskerOwner
 
@@ -69,8 +69,6 @@ class BaseWindow(QMainWindow):
         # ---------------------------------------------------------------------
         # Internals
         # ---------------------------------------------------------------------
-        self.session = get_database_session()
-        self.config = MasterConfig.get_singleton(self.session)
         self.rfid_list = []
         self.balance_list = []
         self.whisker_task = None
@@ -105,14 +103,17 @@ class BaseWindow(QMainWindow):
         test_layout = QHBoxLayout()
         self.reset_rfids_button = QPushButton('Reset RFIDs')
         self.reset_rfids_button.clicked.connect(self.reset_rfid_devices)
-        self.ping_balance_button = QPushButton('Ping &balances')
-        self.ping_balance_button.clicked.connect(self.ping_balance)
+        self.ping_balances_button = QPushButton('Ping &balances')
+        self.ping_balances_button.clicked.connect(self.ping_balances)
+        self.tare_balances_button = QPushButton('&Tare balances')
+        self.tare_balances_button.clicked.connect(self.tare_balances)
         self.ping_whisker_button = QPushButton('&Ping Whisker')
         self.ping_whisker_button.clicked.connect(self.ping_whisker)
         report_status_button = QPushButton('&Report status')
         report_status_button.clicked.connect(self.report_status)
         test_layout.addWidget(self.reset_rfids_button)
-        test_layout.addWidget(self.ping_balance_button)
+        test_layout.addWidget(self.ping_balances_button)
+        test_layout.addWidget(self.tare_balances_button)
         test_layout.addWidget(self.ping_whisker_button)
         test_layout.addWidget(report_status_button)
         test_layout.addStretch(1)
@@ -190,10 +191,12 @@ class BaseWindow(QMainWindow):
 
     @Slot()
     def configure(self):
-        dialog = MasterConfigWindow(self.session, self.config, parent=self,
-                                    readonly=self.anything_running())
-        dialog.edit_in_nested_transaction()
-        self.session.commit()
+        with session_thread_scope() as session:
+            config = MasterConfig.get_singleton(session)
+            dialog = MasterConfigWindow(session, config, parent=self,
+                                        readonly=self.anything_running())
+            dialog.edit_in_nested_transaction()
+            session.commit()
 
     # -------------------------------------------------------------------------
     # Starting, stopping, thread management
@@ -206,52 +209,59 @@ class BaseWindow(QMainWindow):
                               "Can't start: already running.")
             return
 
-        # ---------------------------------------------------------------------
-        # Whisker
-        # ---------------------------------------------------------------------
-        self.whisker_task = WeightWhiskerTask()
-        self.whisker_owner = WhiskerOwner(
-            self.whisker_task, self.config.server, parent=self)
-        self.whisker_owner.finished.connect(self.something_finished)
-        self.whisker_owner.status_sent.connect(self.on_status)
-        self.whisker_owner.error_sent.connect(self.on_status)
-        # It's OK to connect signals before or after moving them to a different
-        # thread: http://stackoverflow.com/questions/20752154
-        # We don't want time-critical signals going via the GUI thread, because
-        # that might be busy with user input.
-        # So we'll use the self.whisker_task as the recipient; see below.
+        with session_thread_scope() as session:
+            config = MasterConfig.get_singleton(session)
+            # Continue to hold the session beyond this.
+            # http://stackoverflow.com/questions/13904735/sqlalchemy-how-to-use-an-instance-in-sqlalchemy-after-session-close  # noqa
 
-        # ---------------------------------------------------------------------
-        # RFIDs
-        # ---------------------------------------------------------------------
-        self.rfid_list = []
-        for rfid_config in self.config.rfid_configs:
-            if not rfid_config.enabled:
-                continue
-            rfid = RfidController(rfid_config, parent=self)
-            rfid.status_sent.connect(self.on_status)
-            rfid.error_sent.connect(self.on_status)
-            rfid.finished.connect(self.something_finished)
-            rfid.rfid_received.connect(self.whisker_task.on_rfid)
-            self.rfid_list.append(rfid)
+            # ---------------------------------------------------------------------
+            # Whisker
+            # ---------------------------------------------------------------------
+            self.whisker_task = WeightWhiskerTask()
+            self.whisker_owner = WhiskerOwner(
+                self.whisker_task, config.server, parent=self)
+            self.whisker_owner.finished.connect(self.something_finished)
+            self.whisker_owner.status_sent.connect(self.on_status)
+            self.whisker_owner.error_sent.connect(self.on_status)
+            # It's OK to connect signals before or after moving them to a
+            # different thread: http://stackoverflow.com/questions/20752154
+            # We don't want time-critical signals going via the GUI thread,
+            # because that might be busy with user input.
+            # So we'll use the self.whisker_task as the recipient; see below.
 
-        # ---------------------------------------------------------------------
-        # Balances
-        # ---------------------------------------------------------------------
-        self.balance_list = []
-        for balance_config in self.config.balance_configs:
-            if not balance_config.enabled:
-                continue
-            if not balance_config.reader:
-                continue
-            if not balance_config.reader.enabled:
-                continue
-            balance = BalanceController(balance_config, parent=self)
-            balance.status_sent.connect(self.on_status)
-            balance.error_sent.connect(self.on_status)
-            balance.finished.connect(self.something_finished)
-            balance.mass_received.connect(self.whisker_task.on_mass)
-            self.balance_list.append(balance)
+            # -----------------------------------------------------------------
+            # RFIDs
+            # -----------------------------------------------------------------
+            self.rfid_list = []
+            for rfid_config in config.rfid_configs:
+                if not rfid_config.enabled:
+                    continue
+                rfid = RfidOwner(rfid_config, parent=self)
+                rfid.status_sent.connect(self.on_status)
+                rfid.error_sent.connect(self.on_status)
+                rfid.finished.connect(self.something_finished)
+                rfid.controller.rfid_received.connect(
+                    self.whisker_task.on_rfid)
+                self.rfid_list.append(rfid)
+
+            # -----------------------------------------------------------------
+            # Balances
+            # -----------------------------------------------------------------
+            self.balance_list = []
+            for balance_config in config.balance_configs:
+                if not balance_config.enabled:
+                    continue
+                if not balance_config.reader:
+                    continue
+                if not balance_config.reader.enabled:
+                    continue
+                balance = BalanceOwner(balance_config, parent=self)
+                balance.status_sent.connect(self.on_status)
+                balance.error_sent.connect(self.on_status)
+                balance.finished.connect(self.something_finished)
+                balance.controller.mass_received.connect(
+                    self.whisker_task.on_mass)
+                self.balance_list.append(balance)
 
         # ---------------------------------------------------------------------
         # Start
@@ -308,9 +318,14 @@ class BaseWindow(QMainWindow):
             rfid.reset()
 
     @Slot()
-    def ping_balance(self):
+    def ping_balances(self):
         for balance in self.balance_list:
             balance.ping()
+
+    @Slot()
+    def tare_balances(self):
+        for balance in self.balance_list:
+            balance.tare()
 
     @Slot()
     def ping_whisker(self):
@@ -369,11 +384,13 @@ class BaseWindow(QMainWindow):
 
     def set_button_states(self):
         running = self.anything_running()
-        # self.configure_button.setEnabled(not running)
+        self.configure_button.setText(
+            'View configuration' if running else '&Configure')
         self.start_button.setEnabled(not running)
         self.stop_button.setEnabled(running)
         self.reset_rfids_button.setEnabled(running)
-        self.ping_balance_button.setEnabled(running)
+        self.ping_balances_button.setEnabled(running)
+        self.tare_balances_button.setEnabled(running)
         self.ping_whisker_button.setEnabled(running)
 
 
@@ -423,6 +440,8 @@ def main():
     logger.debug("unparsed_args: {}".format(unparsed_args))
     logger.info("PySide version: {}".format(PySide.__version__))
     logger.info("QtCore version: {}".format(PySide.QtCore.qVersion()))
+    if getattr(sys, 'frozen', False):
+        logger.debug("Running inside a PyInstaller bundle")
 
     # -------------------------------------------------------------------------
     # Database

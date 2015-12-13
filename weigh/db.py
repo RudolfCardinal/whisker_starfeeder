@@ -5,13 +5,15 @@
 from contextlib import contextmanager
 import logging
 logger = logging.getLogger(__name__)
-from os import path
+# from os import path
 
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
+# ... don't comment this out; PyInstaller ignores Alembic otherwise.
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
 
+from weigh.alembic_current_revision import ALEMBIC_CURRENT_REVISION
 from weigh.settings import DATABASE_ENGINE
 
 
@@ -19,10 +21,10 @@ from weigh.settings import DATABASE_ENGINE
 # Find out where Alembic files live
 # =============================================================================
 
-def get_alembic_env_dir():
-    return path.join(path.abspath(path.dirname(__file__)),
-                     "..",
-                     "migrations")
+# def get_alembic_env_dir():
+#     return path.join(path.abspath(path.dirname(__file__)),
+#                      "..",
+#                      "migrations")
 
 
 # =============================================================================
@@ -37,9 +39,13 @@ def get_database_url():
 # Alembic revision/migration system
 # =============================================================================
 
-def get_head_revision(alembic_env_dir):
+def get_head_revision_from_alembic(alembic_env_dir):
     script = ScriptDirectory(alembic_env_dir)
     return script.get_current_head()
+
+
+def get_head_revision_without_alembic():
+    return ALEMBIC_CURRENT_REVISION
 
 
 def get_current_revision(database_url):
@@ -50,25 +56,34 @@ def get_current_revision(database_url):
 
 
 def ensure_migration_is_latest():
-    alembic_env_dir = get_alembic_env_dir()
-    logger.debug("alembic_env_dir: {}".format(alembic_env_dir))
+    # -------------------------------------------------------------------------
+    # Where we are
+    # -------------------------------------------------------------------------
+    # alembic_env_dir = get_alembic_env_dir()
+    # logger.debug("alembic_env_dir: {}".format(alembic_env_dir))
+    # head_revision = get_head_revision_from_alembic(alembic_env_dir)
+    head_revision = get_head_revision_without_alembic()
+    logger.info("Intended database version: {}".format(head_revision))
+    # -------------------------------------------------------------------------
+    # Where we want to be
+    # -------------------------------------------------------------------------
     database_url = get_database_url()
     logger.debug("database_url: {}".format(database_url))
-    head_revision = get_head_revision(alembic_env_dir)
-    logger.debug("Alembic head revision: {}".format(head_revision))
     current_revision = get_current_revision(database_url)
-    logger.debug("Alembic current revision: {}".format(current_revision))
+    logger.info("Current database version: {}".format(current_revision))
+    # -------------------------------------------------------------------------
+    # Are we where we want to be?
+    # -------------------------------------------------------------------------
     if current_revision != head_revision:
         raise ValueError(
-            "Alembic revision should be {} but is {}; run "
+            "Database revision should be {} but is {}; run "
             "update_database_structure.sh to fix".format(head_revision,
                                                          current_revision))
 
 
 # =============================================================================
-# Function to get database session, etc.
+# Functions to get database session, etc.
 # =============================================================================
-# Will be thread-local.
 
 def get_database_engine(sqlite=True):
     database_url = get_database_url()
@@ -93,17 +108,43 @@ def get_database_engine(sqlite=True):
 
     return engine
 
+# -----------------------------------------------------------------------------
+# Plain functions: not thread-aware
+# -----------------------------------------------------------------------------
 
-def get_database_session():
+def get_database_session_thread_unaware():
     engine = get_database_engine()
     Session = sessionmaker(bind=engine)
     return Session()
 
 
 @contextmanager
-def session_scope():
+def session_scope_thread_unaware():
     # http://docs.sqlalchemy.org/en/latest/orm/session_basics.html#session-faq-whentocreate  # noqa
-    session = get_database_session()
+    session = get_database_session_thread_unaware()
+    try:
+        yield session
+        session.commit()
+    except:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+# -----------------------------------------------------------------------------
+# Thread-scoped versions
+# -----------------------------------------------------------------------------
+# http://docs.sqlalchemy.org/en/latest/orm/contextual.html
+
+def get_database_session_thread_scope():
+    engine = get_database_engine()
+    session_factory = sessionmaker(bind=engine)
+    Session = scoped_session(session_factory)
+    return Session()
+
+@contextmanager
+def session_thread_scope():
+    session = get_database_session_thread_scope()
     try:
         yield session
         session.commit()

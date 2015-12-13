@@ -42,6 +42,7 @@ from PySide.QtNetwork import (
 
 from weigh.constants import ThreadOwnerState
 from weigh.debug_qt import debug_object, debug_thread
+from weigh.lang import CompiledRegexMemory
 from weigh.qt import StatusMixin
 
 
@@ -130,6 +131,7 @@ class WhiskerOwner(QObject, StatusMixin):
         super().__init__(parent)
         StatusMixin.__init__(self, name, logger)
         self.state = ThreadOwnerState.stopped
+        self.is_connected = False
 
         self.mainsockthread = QThread()
         self.mainsock = WhiskerMainSocketListener(
@@ -155,6 +157,7 @@ class WhiskerOwner(QObject, StatusMixin):
 
         # Connect object and thread start/stop events
         # ... start sequence
+        self.taskthread.started.connect(self.task.start)
         self.mainsockthread.started.connect(self.mainsock.start)
         # ... stop
         self.mainsock_finish_requested.connect(self.mainsock.stop,
@@ -200,6 +203,7 @@ class WhiskerOwner(QObject, StatusMixin):
 
     def report_status(self):
         self.status("state: {}".format(self.state))
+        self.status("connected to server: {}".format(self.is_connected))
 
     # -------------------------------------------------------------------------
     # Starting
@@ -249,6 +253,7 @@ class WhiskerOwner(QObject, StatusMixin):
     # slot
     def on_connect(self):
         self.status("Fully connected to Whisker server")
+        self.is_connected = True
         self.connected.emit()
 
     def ping(self):
@@ -367,17 +372,17 @@ class WhiskerController(QObject, StatusMixin):
     # slot
     def main_received(self, msg):
         timestamp = datetime.datetime.now()
+        gre = CompiledRegexMemory()
         # self.debug("main_received: {}".format(msg))
 
         # 0. Ping has already been dealt with.
         # 1. Deal with immediate socket connection internally.
-        m = IMMPORT_REGEX.search(msg)
-        if m:
-            self.immport = int(m.group(1))
+        if gre.search(IMMPORT_REGEX, msg):
+            self.immport = int(gre.group(1))
             return
-        m = CODE_REGEX.search(msg)
-        if m:
-            code = m.group(1)
+
+        if gre.search(CODE_REGEX, msg):
+            code = gre.group(1)
             self.immsocket = QTcpSocket(parent=self)
             self.debug(
                 "Connecting immediate socket to {}:{} with timeout {}".format(
@@ -402,9 +407,8 @@ class WhiskerController(QObject, StatusMixin):
         self.message_received.emit(msg, timestamp, whisker_timestamp)
 
         # 4. Send the message to specific-purpose receivers.
-        m = EVENT_REGEX.search(msg)
-        if m:
-            event = m.group(1)
+        if gre.search(EVENT_REGEX, msg):
+            event = gre.group(1)
             self.event_received.emit(event, timestamp, whisker_timestamp)
 
     # slot
@@ -473,8 +477,11 @@ class WhiskerController(QObject, StatusMixin):
 
     # slot
     def ping(self):
-        self.command(PING)  # the result is atypical, so don't check it
-        self.status("Successfully pinged server")
+        reply = self.get_response(PING)
+        if reply:
+            self.status("Successfully pinged server")
+        else:
+            self.status("Failed to ping server")
 
     def send_to_client(self, clientnum, msg):
         return self.command("SendToClient {} {}".format(clientnum, quote(msg)))
