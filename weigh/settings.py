@@ -20,5 +20,6 @@ Linux:
 DATABASE_ENGINE = {
     # three slashes for a relative path
     'url': os.environ[db_url_env_var],
-    'echo': True,
+    # 'echo': True,
+    'echo': False,
 }

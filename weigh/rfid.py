@@ -86,6 +86,7 @@ def ztag_to_rfid_number(ztag):
     - At the end, rfid_string and rfid_int should match the number on the tag's
       bar code.
     - The final number is at most 15 digits (3 country, 12 national_id).
+    - A 32-bit signed integer goes up to 2,147,483,647 -- not enough.
     - A 32-bit unsigned integer goes up to 4,294,967,295 -- not enough.
     - A 64-bit unsigned integer goes up to 18,446,744,073,709,551,615 -- OK.
     - A 64-bit signed integer goes up to +9,223,372,036,854,775,807 -- OK.
@@ -118,9 +119,10 @@ class RfidController(SerialController):
     """
     rfid_received = Signal(RfidSingleEvent)
 
-    def __init__(self, reader_id, **kwargs):
+    def __init__(self, reader_id, balance_id, **kwargs):
         super().__init__(**kwargs)
         self.reader_id = reader_id
+        self.balance_id = balance_id
         self.swallow_next_stopped_read = False
         self.reset_timer = QTimer()
         self.reset_timer.timeout.connect(self.reset_2)
@@ -193,6 +195,7 @@ class RfidController(SerialController):
             # emit a Python object instead.
             rfid_single_event = RfidSingleEvent(
                 reader_id=self.reader_id,
+                balance_id=self.balance_id,
                 rfid=rfid_number,
                 timestamp=timestamp)
             self.rfid_received.emit(rfid_single_event)
@@ -203,6 +206,11 @@ class RfidOwner(SerialOwner):
 
     def __init__(self, rfid_config, parent=None):
         # Do not keep a copy of rfid_config; it will expire.
+        self.reader_id = rfid_config.id
+        self.name = rfid_config.name
+        balance_id = None
+        if rfid_config.balance:
+            balance_id = rfid_config.balance.id
         super().__init__(
             serial_args=rfid_config.get_serial_args(),
             parent=parent,
@@ -211,7 +219,8 @@ class RfidOwner(SerialOwner):
             tx_eol=NO_BYTES,
             controller_class=RfidController,
             controller_kwargs=dict(
-                reader_id=rfid_config.id
+                reader_id=rfid_config.id,
+                balance_id=balance_id,
             ))
         self.reset_requested.connect(self.controller.reset)
 

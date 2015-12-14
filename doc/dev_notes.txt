@@ -634,8 +634,7 @@ Concepts around detecting mass from an identified animal
 TO DO
 ===============================================================================
 
-*** balance calibration: zero point and heavy point
 *** balance filtering (ASF, FMD)
-*** physical balance test
 *** test weighing logic
-*** animal minimum/maximum weight: best done in the database later?
+*** specific animal minimum/maximum weight: best done in the database later?
+*** sequence goes wrong if tare (or presumably calibrate) during balance startup

@@ -23,7 +23,9 @@ import PySide
 from PySide.QtCore import Slot
 from PySide.QtGui import (
     QApplication,
+    QGridLayout,
     QHBoxLayout,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -33,11 +35,17 @@ from PySide.QtGui import (
     QVBoxLayout,
 )
 
+from weigh.constants import GUI_MASS_FORMAT, GUI_TIME_FORMAT
 from weigh.db import ensure_migration_is_latest, session_thread_scope
 from weigh.debug_qt import enableSignalDebuggingSimply
 from weigh.balance import BalanceOwner
-from weigh.gui import MasterConfigWindow, StyledQGroupBox
-from weigh.models import MasterConfig
+from weigh.gui import (
+    ALIGNMENT,
+    CalibrateBalancesWindow,
+    MasterConfigWindow,
+    StyledQGroupBox,
+)
+from weigh.models import MasterConfig, BalanceConfig
 from weigh.rfid import RfidOwner
 from weigh.task import WeightWhiskerTask
 from weigh.whisker_qt import WhiskerOwner
@@ -105,19 +113,24 @@ class BaseWindow(QMainWindow):
         self.reset_rfids_button.clicked.connect(self.reset_rfid_devices)
         self.ping_balances_button = QPushButton('Ping &balances')
         self.ping_balances_button.clicked.connect(self.ping_balances)
-        self.tare_balances_button = QPushButton('&Tare balances')
-        self.tare_balances_button.clicked.connect(self.tare_balances)
+        self.calibrate_balances_button = QPushButton(
+            '&Tare/calibrate balances')
+        self.calibrate_balances_button.clicked.connect(self.calibrate_balances)
         self.ping_whisker_button = QPushButton('&Ping Whisker')
         self.ping_whisker_button.clicked.connect(self.ping_whisker)
         report_status_button = QPushButton('&Report status')
         report_status_button.clicked.connect(self.report_status)
         test_layout.addWidget(self.reset_rfids_button)
         test_layout.addWidget(self.ping_balances_button)
-        test_layout.addWidget(self.tare_balances_button)
+        test_layout.addWidget(self.calibrate_balances_button)
         test_layout.addWidget(self.ping_whisker_button)
         test_layout.addWidget(report_status_button)
         test_layout.addStretch(1)
         test_group.setLayout(test_layout)
+
+        self.status_group = StyledQGroupBox("Status")
+        self.status_grid = None
+        self.lay_out_status()
 
         # For nested layouts: (1) create everything, (2) lay out
         log_group = StyledQGroupBox("Log")
@@ -150,6 +163,7 @@ class BaseWindow(QMainWindow):
         main_layout.addWidget(config_group)
         main_layout.addWidget(run_group)
         main_layout.addWidget(test_group)
+        main_layout.addWidget(self.status_group)
         main_layout.addWidget(log_group)
 
         self.set_button_states()
@@ -191,10 +205,11 @@ class BaseWindow(QMainWindow):
 
     @Slot()
     def configure(self):
-        with session_thread_scope() as session:
+        readonly = self.anything_running()
+        with session_thread_scope(readonly) as session:
             config = MasterConfig.get_singleton(session)
             dialog = MasterConfigWindow(session, config, parent=self,
-                                        readonly=self.anything_running())
+                                        readonly=readonly)
             dialog.edit_in_nested_transaction()
             session.commit()
 
@@ -214,15 +229,17 @@ class BaseWindow(QMainWindow):
             # Continue to hold the session beyond this.
             # http://stackoverflow.com/questions/13904735/sqlalchemy-how-to-use-an-instance-in-sqlalchemy-after-session-close  # noqa
 
-            # ---------------------------------------------------------------------
+            # -----------------------------------------------------------------
             # Whisker
-            # ---------------------------------------------------------------------
+            # -----------------------------------------------------------------
             self.whisker_task = WeightWhiskerTask()
             self.whisker_owner = WhiskerOwner(
                 self.whisker_task, config.server, parent=self)
             self.whisker_owner.finished.connect(self.something_finished)
             self.whisker_owner.status_sent.connect(self.on_status)
             self.whisker_owner.error_sent.connect(self.on_status)
+            self.whisker_task.identified_mass_received.connect(
+                self.on_identified_mass)
             # It's OK to connect signals before or after moving them to a
             # different thread: http://stackoverflow.com/questions/20752154
             # We don't want time-critical signals going via the GUI thread,
@@ -233,7 +250,9 @@ class BaseWindow(QMainWindow):
             # RFIDs
             # -----------------------------------------------------------------
             self.rfid_list = []
-            for rfid_config in config.rfid_configs:
+            self.rfid_id_to_obj = {}
+            self.rfid_id_to_idx = {}
+            for i, rfid_config in enumerate(config.rfid_configs):
                 if not rfid_config.enabled:
                     continue
                 rfid = RfidOwner(rfid_config, parent=self)
@@ -242,26 +261,46 @@ class BaseWindow(QMainWindow):
                 rfid.finished.connect(self.something_finished)
                 rfid.controller.rfid_received.connect(
                     self.whisker_task.on_rfid)
+                rfid.controller.rfid_received.connect(self.on_rfid)
                 self.rfid_list.append(rfid)
+                self.rfid_id_to_obj[rfid.reader_id] = rfid
+                self.rfid_id_to_idx[rfid.reader_id] = i
 
             # -----------------------------------------------------------------
             # Balances
             # -----------------------------------------------------------------
             self.balance_list = []
-            for balance_config in config.balance_configs:
+            self.balance_id_to_obj = {}
+            self.balance_id_to_idx = {}
+            for i, balance_config in enumerate(config.balance_configs):
                 if not balance_config.enabled:
                     continue
                 if not balance_config.reader:
                     continue
                 if not balance_config.reader.enabled:
                     continue
-                balance = BalanceOwner(balance_config, parent=self)
+                balance = BalanceOwner(
+                    balance_config,
+                    rfid_effective_time_s=config.rfid_effective_time_s,
+                    parent=self)
                 balance.status_sent.connect(self.on_status)
                 balance.error_sent.connect(self.on_status)
                 balance.finished.connect(self.something_finished)
                 balance.controller.mass_received.connect(
                     self.whisker_task.on_mass)
+                balance.controller.mass_received.connect(self.on_mass)
+                balance.calibrated.connect(self.on_calibrated)
                 self.balance_list.append(balance)
+                self.balance_id_to_obj[balance.balance_id] = balance
+                self.balance_id_to_idx[balance.balance_id] = i
+                rfid = self.rfid_id_to_obj[balance_config.reader_id]
+                rfid.controller.rfid_received.connect(
+                    balance.controller.on_rfid)
+
+        # ---------------------------------------------------------------------
+        # Display
+        # ---------------------------------------------------------------------
+        self.lay_out_status()
 
         # ---------------------------------------------------------------------
         # Start
@@ -323,9 +362,10 @@ class BaseWindow(QMainWindow):
             balance.ping()
 
     @Slot()
-    def tare_balances(self):
-        for balance in self.balance_list:
-            balance.tare()
+    def calibrate_balances(self):
+        dialog = CalibrateBalancesWindow(balance_owners=self.balance_list,
+                                         parent=self)
+        dialog.exec_()
 
     @Slot()
     def ping_whisker(self):
@@ -345,6 +385,23 @@ class BaseWindow(QMainWindow):
             self.whisker_owner.report_status()
             # self.whisker_task.report_status()
         self.status("Status report complete.")
+
+    # -------------------------------------------------------------------------
+    # Calibration
+    # -------------------------------------------------------------------------
+
+    def on_calibrated(self, calibration_report):
+        msg = str(calibration_report)
+        self.status(msg)
+        logger.info(msg)
+        with session_thread_scope() as session:
+            balance_config = session.query(BalanceConfig).get(
+                calibration_report.balance_id)
+            logger.debug("WAS: {}".format(repr(balance_config)))
+            balance_config.zero_value = calibration_report.zero_value
+            balance_config.refload_value = calibration_report.refload_value
+            logger.debug("NOW: {}".format(repr(balance_config)))
+            session.commit()
 
     # -------------------------------------------------------------------------
     # Status log
@@ -382,6 +439,106 @@ class BaseWindow(QMainWindow):
     # More GUI
     # -------------------------------------------------------------------------
 
+    def lay_out_status(self, config=None):
+        # Since we want to remove and add items, the simplest thing isn't to
+        # own the grid layout and remove/add widgets, but to own the Group
+        # within which the layout sits, and assign a new layout (presumably
+        # garbage-collecting the old ones).
+        # Actually, we have to pass ownership of the old layout to a dummy
+        # widget owner that's then destroyed;
+        # http://stackoverflow.com/questions/10416582/replacing-layout-on-a-qwidget-with-another-layout  # noqa
+        if self.status_grid:
+            QWidget().setLayout(self.status_grid)
+        # Now we should be able to redo it:
+        self.status_grid = QGridLayout()
+        self.status_group.setLayout(self.status_grid)
+        # Header row
+        self.status_grid.addWidget(QLabel("RFID reader"), 0, 0, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("Last RFID seen"), 0, 1, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("At"), 0, 2, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("Balance"), 0, 3, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("Mass (kg)"), 0, 4, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("At"), 0, 5, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("Identified mass (kg)"),
+                                   0, 6, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("RFID"), 0, 7, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("At"), 0, 8, ALIGNMENT)
+
+        self.rfid_labels_rfid = []
+        self.rfid_labels_at = []
+        row = 1
+        for rfid in self.rfid_list:
+            self.status_grid.addWidget(
+                QLabel("{}: {}".format(rfid.reader_id, rfid.name)),
+                row, 0, ALIGNMENT)
+
+            rfid_label_rfid = QLabel("-")
+            self.status_grid.addWidget(rfid_label_rfid, row, 1, ALIGNMENT)
+            self.rfid_labels_rfid.append(rfid_label_rfid)
+
+            rfid_label_at = QLabel("-")
+            self.status_grid.addWidget(rfid_label_at, row, 2, ALIGNMENT)
+            self.rfid_labels_at.append(rfid_label_at)
+
+            row += 1
+
+        self.balance_labels_mass = []
+        self.balance_labels_mass_at = []
+        self.balance_labels_idmass = []
+        self.balance_labels_rfid = []
+        self.balance_labels_idmass_at = []
+        row = 1
+        for balance in self.balance_list:
+            self.status_grid.addWidget(
+                QLabel("{}: {}".format(balance.balance_id, balance.name)),
+                row, 3, ALIGNMENT)
+
+            balance_label_mass = QLabel("-")
+            self.status_grid.addWidget(balance_label_mass, row, 4, ALIGNMENT)
+            self.balance_labels_mass.append(balance_label_mass)
+
+            balance_label_mass_at = QLabel("-")
+            self.status_grid.addWidget(balance_label_mass_at,
+                                       row, 5, ALIGNMENT)
+            self.balance_labels_mass_at.append(balance_label_mass_at)
+
+            balance_label_idmass = QLabel("-")
+            self.status_grid.addWidget(balance_label_idmass, row, 6, ALIGNMENT)
+            self.balance_labels_idmass.append(balance_label_idmass)
+
+            balance_label_rfid = QLabel("-")
+            self.status_grid.addWidget(balance_label_rfid, row, 7, ALIGNMENT)
+            self.balance_labels_rfid.append(balance_label_rfid)
+
+            balance_label_idmass_at = QLabel("-")
+            self.status_grid.addWidget(balance_label_idmass_at,
+                                       row, 8, ALIGNMENT)
+            self.balance_labels_idmass_at.append(balance_label_idmass_at)
+
+            row += 1
+
+    def on_rfid(self, rfid_single_event):
+        rfid_index = self.rfid_id_to_idx[rfid_single_event.reader_id]
+        self.rfid_labels_rfid[rfid_index].setText(str(rfid_single_event.rfid))
+        self.rfid_labels_at[rfid_index].setText(
+            rfid_single_event.timestamp.strftime(GUI_TIME_FORMAT))
+
+    def on_mass(self, mass_single_event):
+        rfid_index = self.rfid_id_to_idx[mass_single_event.reader_id]
+        self.balance_labels_mass[rfid_index].setText(
+            GUI_MASS_FORMAT % mass_single_event.mass_kg)
+        self.balance_labels_mass_at[rfid_index].setText(
+            mass_single_event.timestamp.strftime(GUI_TIME_FORMAT))
+
+    def on_identified_mass(self, mie_obj):
+        """mie_obj: instance of MassIdentSimpleObject"""
+        rfid_index = self.rfid_id_to_idx[mie_obj.reader_id]
+        self.balance_labels_idmass[rfid_index].setText(GUI_MASS_FORMAT
+                                                      % mie_obj.mass_kg)
+        self.balance_labels_rfid[rfid_index].setText(str(mie_obj.rfid))
+        self.balance_labels_idmass_at[rfid_index].setText(
+            mie_obj.at.strftime(GUI_TIME_FORMAT))
+
     def set_button_states(self):
         running = self.anything_running()
         self.configure_button.setText(
@@ -390,7 +547,7 @@ class BaseWindow(QMainWindow):
         self.stop_button.setEnabled(running)
         self.reset_rfids_button.setEnabled(running)
         self.ping_balances_button.setEnabled(running)
-        self.tare_balances_button.setEnabled(running)
+        self.calibrate_balances_button.setEnabled(running)
         self.ping_whisker_button.setEnabled(running)
 
 

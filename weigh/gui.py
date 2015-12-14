@@ -8,9 +8,11 @@ import platform
 
 from PySide.QtCore import Qt, Slot
 from PySide.QtGui import (
-    # QCheckBox,
+    QCheckBox,
     QComboBox,
     QDialog,
+    QDialogButtonBox,
+    QFormLayout,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -40,6 +42,12 @@ from weigh.qt import (
 AVAILABLE_SERIAL_PORTS = sorted([item[0] for item in comports()],
                                 key=natural_keys)
 # comports() returns a list/tuple of tuples: (port, desc, hwid)
+
+# POSSIBLE_RATES_HZ = [100, 50, 25, 10, 6, 3, 2, 1]
+POSSIBLE_RATES_HZ = [10, 6, 3, 2, 1]
+# ... 100 Hz (a) ends up with a bunch of messages concatenated from the serial
+# device, so timing becomes pointless, (b) is pointless, and (c) leads rapidly
+# to a segmentation fault.
 
 ALIGNMENT = Qt.AlignLeft | Qt.AlignTop
 DEVICE_ID_LABEL = "Device ID (set when first saved)"
@@ -96,20 +104,15 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
     """
     def __init__(self, session, config, parent=None, readonly=False):
         super().__init__(parent)  # QDialog
+        self.readonly = readonly
 
         # Title
         self.setWindowTitle("Configure Starfeeder")
 
         # Elements
-        rfid_effective_time_label = QLabel("RFID effective time (s)")
         self.rfid_effective_time_edit = QLineEdit()
-        rfid_effective_time_explanation = QLabel(
-            "This is the time that an RFID event ‘persists’ for.")
-        server_label = QLabel("Whisker server")
         self.server_edit = QLineEdit(placeholderText="typically: localhost")
-        port_label = QLabel("Whisker port")
         self.port_edit = QLineEdit(placeholderText="typically: 3233")
-        wcm_prefix_label = QLabel("Whisker client message prefix")
         self.wcm_prefix_edit = QLineEdit()
         self.rfid_lv = ModalEditListView(session, RfidConfigDialog,
                                          readonly=readonly)
@@ -121,34 +124,31 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
 
         # Layout/buttons
         logic_group = StyledQGroupBox('Task logic')
-        lgrid = QGridLayout()
-        lgrid.addWidget(rfid_effective_time_label, 0, 0, ALIGNMENT)
-        lgrid.addWidget(self.rfid_effective_time_edit, 0, 1, ALIGNMENT)
-        lgrid.addWidget(rfid_effective_time_explanation, 1, 0, 1, 2, ALIGNMENT)
-        logic_group.setLayout(lgrid)
+        lform = QFormLayout()
+        lform.addRow("RFID effective time (s)<br>This is the time that an RFID"
+                     " event ‘persists’ for.", self.rfid_effective_time_edit)
+        logic_group.setLayout(lform)
 
         whisker_group = StyledQGroupBox('Whisker')
-        wgrid = QGridLayout()
-        wgrid.addWidget(server_label, 0, 0, ALIGNMENT)
-        wgrid.addWidget(self.server_edit, 0, 1, ALIGNMENT)
-        wgrid.addWidget(port_label, 1, 0, ALIGNMENT)
-        wgrid.addWidget(self.port_edit, 1, 1, ALIGNMENT)
-        wgrid.addWidget(wcm_prefix_label, 2, 0, ALIGNMENT)
-        wgrid.addWidget(self.wcm_prefix_edit, 2, 1, ALIGNMENT)
-        whisker_group.setLayout(wgrid)
+        wform = QFormLayout()
+        wform.addRow("Whisker server", self.server_edit)
+        wform.addRow("Whisker port", self.port_edit)
+        wform.addRow("Whisker client message prefix", self.wcm_prefix_edit)
+        whisker_group.setLayout(wform)
 
         rfid_group = StyledQGroupBox('RFID readers')
         rfid_layout_1 = QHBoxLayout()
         rfid_layout_2 = QVBoxLayout()
-        self.rfid_add_button = QPushButton('Add')
-        self.rfid_add_button.clicked.connect(self.add_rfid)
-        self.rfid_remove_button = QPushButton('Remove')
-        self.rfid_remove_button.clicked.connect(self.remove_rfid)
-        self.rfid_edit_button = QPushButton('Edit')
+        if not readonly:
+            self.rfid_add_button = QPushButton('Add')
+            self.rfid_add_button.clicked.connect(self.add_rfid)
+            self.rfid_remove_button = QPushButton('Remove')
+            self.rfid_remove_button.clicked.connect(self.remove_rfid)
+            rfid_layout_2.addWidget(self.rfid_add_button)
+            rfid_layout_2.addWidget(self.rfid_remove_button)
+        self.rfid_edit_button = QPushButton('View' if readonly else 'Edit')
         self.rfid_edit_button.clicked.connect(self.edit_rfid)
         # ... or double-click
-        rfid_layout_2.addWidget(self.rfid_add_button)
-        rfid_layout_2.addWidget(self.rfid_remove_button)
         rfid_layout_2.addWidget(self.rfid_edit_button)
         rfid_layout_2.addStretch(1)
         rfid_layout_1.addWidget(self.rfid_lv)
@@ -158,14 +158,15 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         balance_group = StyledQGroupBox('Balances')
         balance_layout_1 = QHBoxLayout()
         balance_layout_2 = QVBoxLayout()
-        self.balance_add_button = QPushButton('Add')
-        self.balance_add_button.clicked.connect(self.add_balance)
-        self.balance_remove_button = QPushButton('Remove')
-        self.balance_remove_button.clicked.connect(self.remove_balance)
-        self.balance_edit_button = QPushButton('Edit')
+        if not readonly:
+            self.balance_add_button = QPushButton('Add')
+            self.balance_add_button.clicked.connect(self.add_balance)
+            self.balance_remove_button = QPushButton('Remove')
+            self.balance_remove_button.clicked.connect(self.remove_balance)
+            balance_layout_2.addWidget(self.balance_add_button)
+            balance_layout_2.addWidget(self.balance_remove_button)
+        self.balance_edit_button = QPushButton('View' if readonly else 'Edit')
         self.balance_edit_button.clicked.connect(self.edit_balance)
-        balance_layout_2.addWidget(self.balance_add_button)
-        balance_layout_2.addWidget(self.balance_remove_button)
         balance_layout_2.addWidget(self.balance_edit_button)
         balance_layout_2.addStretch(1)
         balance_layout_1.addWidget(self.balance_lv)
@@ -299,12 +300,14 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
 
     @Slot()
     def set_rfid_button_states(self, selected, maydelete):
-        self.rfid_remove_button.setEnabled(maydelete)
+        if not self.readonly:
+            self.rfid_remove_button.setEnabled(maydelete)
         self.rfid_edit_button.setEnabled(selected)
 
     @Slot()
     def set_balance_button_states(self, selected, maydelete):
-        self.balance_remove_button.setEnabled(maydelete)
+        if not self.readonly:
+            self.balance_remove_button.setEnabled(maydelete)
         self.balance_edit_button.setEnabled(selected)
 
 
@@ -370,27 +373,25 @@ class SerialPortMixin(object):
         if flow_options:
             flow_map = [x for x in flow_map if x[0] in flow_options]
 
-        sp_port_label = QLabel("Serial port")
-        sp_baudrate_label = QLabel("Speed in bits per second")
-        grid = QGridLayout()
-        grid.addWidget(sp_port_label, 0, 0, ALIGNMENT)
-        grid.addWidget(sp_baudrate_label, 1, 0, ALIGNMENT)
+        form = QFormLayout()
         if self.sp_port_options:
             self.sp_port_combo = QComboBox()
             self.sp_port_combo.setEditable(allow_other_port)
             self.sp_port_combo.addItems(port_options)
-            grid.addWidget(self.sp_port_combo, 0, 1, ALIGNMENT)
+            sp_port_thing = self.sp_port_combo
         else:
             self.sp_port_edit = QLineEdit()
-            grid.addWidget(self.sp_port_edit, 0, 1, ALIGNMENT)
+            sp_port_thing = self.sp_port_edit
+        form.addRow("Serial port", sp_port_thing)
         if baudrate_options:
             self.sp_baudrate_combo = QComboBox()
             self.sp_baudrate_combo.setEditable(allow_other_baudrate)
             self.sp_baudrate_combo.addItems([str(x) for x in baudrate_options])
-            grid.addWidget(self.sp_baudrate_combo, 1, 1, ALIGNMENT)
+            sp_baudrate_thing = self.sp_baudrate_combo
         else:
             self.sp_baudrate_edit = QLineEdit()
-            grid.addWidget(self.sp_baudrate_edit, 1, 1, ALIGNMENT)
+            sp_baudrate_thing = self.sp_baudrate_edit
+        form.addRow("Speed in bits per second", sp_baudrate_thing)
 
         sp_bytesize_group = StyledQGroupBox("Data bits")
         self.sp_bytesize_rg = RadioGroup(bytesize_map,
@@ -422,7 +423,7 @@ class SerialPortMixin(object):
         sp_flow_group.setLayout(sp_flow_layout)
 
         vlayout = QVBoxLayout()
-        vlayout.addLayout(grid)
+        vlayout.addLayout(form)
         vlayout.addWidget(sp_bytesize_group)
         vlayout.addWidget(sp_parity_group)
         vlayout.addWidget(sp_stop_group)
@@ -515,27 +516,21 @@ class RfidConfigDialog(QDialog, TransactionalEditDialogMixin,
         # Elements
         self.enabled_group = StyledQGroupBox("Enabled")
         self.enabled_group.setCheckable(True)
-        id_label = QLabel(DEVICE_ID_LABEL)
         self.id_value_label = QLabel()
-        keep_label = QLabel(KEEP_LABEL)
         self.keep_value_label = QLabel()
-        name_label = QLabel("RFID name")
         self.name_edit = QLineEdit()
         warning1 = QLabel(RENAME_WARNING)
         warning2 = QLabel("<b>NOTE:</b> the intended RFID devices are fixed "
                           "in hardware to 9600 bps, 8N1</b>")  # [3]
 
         # Layout
-        grid = QGridLayout()
-        grid.addWidget(id_label, 0, 0, ALIGNMENT)
-        grid.addWidget(self.id_value_label, 0, 1, ALIGNMENT)
-        grid.addWidget(keep_label, 1, 0, ALIGNMENT)
-        grid.addWidget(self.keep_value_label, 1, 1, ALIGNMENT)
-        grid.addWidget(name_label, 2, 0, ALIGNMENT)
-        grid.addWidget(self.name_edit, 2, 1, ALIGNMENT)
+        form = QFormLayout()
+        form.addRow(DEVICE_ID_LABEL, self.id_value_label)
+        form.addRow(KEEP_LABEL, self.keep_value_label)
+        form.addRow("RFID name", self.name_edit)
 
         main_layout = QVBoxLayout()
-        main_layout.addLayout(grid)
+        main_layout.addLayout(form)
         main_layout.addWidget(warning1)
         main_layout.addWidget(warning2)
         main_layout.addWidget(self.sp_group)
@@ -606,38 +601,62 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
 
         self.setWindowTitle("Configure balance")
 
-        self.enabled_group = StyledQGroupBox("Enabled")
-        self.enabled_group.setCheckable(True)
-        id_label = QLabel(DEVICE_ID_LABEL)
-        self.id_value_label = QLabel()
-        keep_label = QLabel(KEEP_LABEL)
-        self.keep_value_label = QLabel()
-        name_label = QLabel("Balance name")
-        self.name_edit = QLineEdit()
         warning1 = QLabel(RENAME_WARNING)
-        reader_label = QLabel("Paired RFID reader")
-        self.reader_combo = QComboBox()
-        self.reader_combo.addItems(self.reader_names)
-        self.reader_combo.setEditable(False)
         warning2 = QLabel(
             "<b>NOTE:</b> the intended balance devices default to 9600 bps, "
             "8E1,<br>and are restricted in their serial options")  # [4]
+        self.enabled_group = StyledQGroupBox("Enabled")
+        self.enabled_group.setCheckable(True)
+        self.id_value_label = QLabel()
+        self.keep_value_label = QLabel()
+        self.name_edit = QLineEdit()
+        self.reader_combo = QComboBox()
+        self.reader_combo.addItems(self.reader_names)
+        self.reader_combo.setEditable(False)
+        self.measurement_rate_hz_combo = QComboBox()
+        self.measurement_rate_hz_combo.addItems(
+            [str(x) for x in POSSIBLE_RATES_HZ])
+        self.measurement_rate_hz_combo.setEditable(False)
+        self.stability_n_edit = QLineEdit()
+        self.tolerance_kg_edit = QLineEdit()
+        self.min_mass_kg_edit = QLineEdit()
+        self.refload_mass_kg_edit = QLineEdit()
+        self.zero_value_label = QLabel()
+        self.refload_value_label = QLabel()
+        self.read_continuously_check = QCheckBox(
+            "Read continuously (inefficient)")
 
-        grid = QGridLayout()
-        grid.addWidget(id_label, 0, 0, ALIGNMENT)
-        grid.addWidget(self.id_value_label, 0, 1, ALIGNMENT)
-        grid.addWidget(keep_label, 1, 0, ALIGNMENT)
-        grid.addWidget(self.keep_value_label, 1, 1, ALIGNMENT)
-        grid.addWidget(name_label, 2, 0, ALIGNMENT)
-        grid.addWidget(self.name_edit, 2, 1, ALIGNMENT)
-        grid.addWidget(warning1, 3, 0, 1, 2, ALIGNMENT)
-        # ... row, col, rowspan, colspan, alignment
-        grid.addWidget(reader_label, 4, 0, ALIGNMENT)
-        grid.addWidget(self.reader_combo, 4, 1, ALIGNMENT)
-        grid.addWidget(warning2, 5, 0, 1, 2, ALIGNMENT)
+        form1 = QFormLayout()
+        form1.addRow(DEVICE_ID_LABEL, self.id_value_label)
+        form1.addRow(KEEP_LABEL, self.keep_value_label)
+        form1.addRow("Balance name", self.name_edit)
+        form1.addRow("Paired RFID reader", self.reader_combo)
+
+        meas_group = StyledQGroupBox('Measurement settings')
+        form2 = QFormLayout()
+        form2.addRow("Measurement rate (Hz)", self.measurement_rate_hz_combo)
+        form2.addRow("Number of consecutive readings judged for stability",
+                     self.stability_n_edit)
+        form2.addRow("Stability tolerance (kg) (range [max - min] of<br>"
+                     "consecutive readings must not exceed this)",
+                     self.tolerance_kg_edit)
+        form2.addRow("Minimum mass for detection (kg)", self.min_mass_kg_edit)
+        form2.addRow("Reference (calibration) mass (kg)",
+                     self.refload_mass_kg_edit)
+        form2.addRow("Zero (tare) calibration point", self.zero_value_label)
+        form2.addRow("Reference mass calibration point",
+                     self.refload_value_label)
+
+        mg_vl = QVBoxLayout()
+        mg_vl.addLayout(form2)
+        mg_vl.addWidget(self.read_continuously_check)
+        meas_group.setLayout(mg_vl)
 
         main_layout = QVBoxLayout()
-        main_layout.addLayout(grid)
+        main_layout.addWidget(warning1)
+        main_layout.addLayout(form1)
+        main_layout.addWidget(meas_group)
+        main_layout.addWidget(warning2)
         main_layout.addWidget(self.sp_group)
 
         self.enabled_group.setLayout(main_layout)
@@ -648,7 +667,7 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
                                               top_layout, readonly=readonly)
 
     def object_to_dialog(self, obj):
-        self.enabled_group.setChecked(obj.enabled)
+        self.enabled_group.setChecked(obj.enabled or False)
         self.id_value_label.setText(str(obj.id))
         self.keep_value_label.setText(str(obj.keep))
         self.name_edit.setText(obj.name)
@@ -657,6 +676,16 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
                 self.reader_ids.index(obj.reader_id))
         else:
             self.reader_combo.setCurrentIndex(0)
+        if obj.measurement_rate_hz in POSSIBLE_RATES_HZ:
+            self.measurement_rate_hz_combo.setCurrentIndex(
+                POSSIBLE_RATES_HZ.index(obj.measurement_rate_hz))
+        self.stability_n_edit.setText(str(obj.stability_n))
+        self.tolerance_kg_edit.setText(str(obj.tolerance_kg))
+        self.min_mass_kg_edit.setText(str(obj.min_mass_kg))
+        self.refload_mass_kg_edit.setText(str(obj.refload_mass_kg))
+        self.zero_value_label.setText(str(obj.zero_value))
+        self.refload_value_label.setText(str(obj.refload_value))
+        self.read_continuously_check.setChecked(obj.read_continuously or False)
         self.object_to_serial_port_group(obj)
 
     def dialog_to_object(self, obj):
@@ -670,6 +699,63 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         try:
             reader_index = self.reader_names.index(reader_name)
             obj.reader_id = self.reader_ids[reader_index]
-        except ValueError:
+        except:
             raise ValidationError("Invalid reader")
+        try:
+            obj.measurement_rate_hz = int(
+                self.measurement_rate_hz_combo.currentText())
+            assert obj.measurement_rate_hz in POSSIBLE_RATES_HZ
+        except:
+            raise ValidationError("Invalid measurement_rate_hz")
+        try:
+            obj.stability_n = int(self.stability_n_edit.text())
+            assert obj.stability_n > 1
+        except:
+            raise ValidationError("Invalid stability_n")
+        try:
+            obj.tolerance_kg = float(self.tolerance_kg_edit.text())
+            assert obj.tolerance_kg > 0
+        except:
+            raise ValidationError("Invalid tolerance_kg")
+        try:
+            obj.min_mass_kg = float(self.min_mass_kg_edit.text())
+            assert obj.min_mass_kg > 0
+        except:
+            raise ValidationError("Invalid min_mass_kg")
+        try:
+            obj.refload_mass_kg = float(self.refload_mass_kg_edit.text())
+            assert obj.refload_mass_kg > 0
+        except:
+            raise ValidationError("Invalid refload_mass_kg")
+        obj.read_continuously = self.read_continuously_check.isChecked()
         self.serial_port_group_to_object(obj)
+
+
+# =============================================================================
+# Tare/calibrate balances
+# =============================================================================
+
+class CalibrateBalancesWindow(QDialog):
+    def __init__(self, balance_owners, parent=None):
+        super().__init__(parent)  # QDialog
+        self.setWindowTitle("Calibrate balances")
+
+        grid = QGridLayout()
+        for i, balance in enumerate(balance_owners):
+            grid.addWidget(QLabel("Balance {}: {}".format(
+                balance.balance_id, balance.name)), i, 0)
+            tare_button = QPushButton("Tare")
+            tare_button.clicked.connect(balance.tare)
+            grid.addWidget(tare_button, i, 1)
+            calibrate_button = QPushButton("Calibrate to {} kg".format(
+                balance.refload_mass_kg))
+            calibrate_button.clicked.connect(balance.calibrate)
+            grid.addWidget(calibrate_button, i, 2)
+
+        ok_buttons = QDialogButtonBox(QDialogButtonBox.Ok,
+                                      Qt.Horizontal, self)
+        ok_buttons.accepted.connect(self.accept)
+
+        vlayout = QVBoxLayout(self)
+        vlayout.addLayout(grid)
+        vlayout.addWidget(ok_buttons)

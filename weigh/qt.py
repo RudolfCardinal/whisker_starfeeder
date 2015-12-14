@@ -454,6 +454,9 @@ class ModalEditListView(QListView):
 
     def add_in_nested_transaction(self, new_object, at_index=None):
         # at_index: None for end, 0 for start
+        if self.readonly:
+            logger.warning("Can't add; readonly")
+            return
         try:
             with self.session.begin_nested():
                 self.session.add(new_object)

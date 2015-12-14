@@ -4,11 +4,14 @@
 import logging
 logger = logging.getLogger(__name__)
 
+from PySide.QtCore import Signal
+
 from weigh.db import session_thread_scope
 # from weigh.debug_qt import debug_object
 from weigh.models import (
     BalanceConfig,
     MassIdentifiedEvent,
+    MassIdentSimpleObject,
     MasterConfig,
     RfidConfig,
     RfidEvent,
@@ -18,6 +21,8 @@ from weigh.whisker_qt import WhiskerTask
 
 class WeightWhiskerTask(WhiskerTask):
     """Doesn't define an end, deliberately."""
+    identified_mass_received = Signal(MassIdentSimpleObject)
+    # ... best not to pass the SQLAlchemy ORM model, but a dict copy
 
     def __init__(self, wcm_prefix="", parent=None, name="whisker_task",
                  **kwargs):
@@ -66,21 +71,23 @@ class WeightWhiskerTask(WhiskerTask):
 
     # slot
     def on_mass(self, mass_single_event):
-        self.status("Mass received: {}".format(mass_single_event))
+        # self.status("Mass received: {}".format(mass_single_event))
         with session_thread_scope() as session:
-            mass_identified_event = MassIdentifiedEvent.record_mass_detection(
+            mie_obj = MassIdentifiedEvent.record_mass_detection(
                 session, mass_single_event, self.rfid_effective_time_s)
-            if mass_identified_event:
+            # ... returns a dict or None, not an SQLAlchemy object
+            if mie_obj:
                 reader_name = RfidConfig.get_name_from_id(
-                    session, mass_identified_event.reader_id)
+                    session, mie_obj.reader_id)
                 balance_name = BalanceConfig.get_name_from_id(
-                    session, mass_identified_event.balance_id)
+                    session, mie_obj.balance_id)
                 self.broadcast(
                     "reader {}, RFID {}, balance {}, mass {} kg, at {}".format(
                         reader_name,
-                        mass_identified_event.rfid,
+                        mie_obj.rfid,
                         balance_name,
-                        mass_identified_event.mass_kg,
-                        mass_identified_event.at))
+                        mie_obj.mass_kg,
+                        mie_obj.at))
+                self.identified_mass_received.emit(mie_obj)
             else:
                 self.debug("Mass measurement not identifiable to a subject")

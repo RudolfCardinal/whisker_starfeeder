@@ -112,42 +112,55 @@ def get_database_engine(sqlite=True):
 # Plain functions: not thread-aware
 # -----------------------------------------------------------------------------
 
-def get_database_session_thread_unaware():
-    engine = get_database_engine()
-    Session = sessionmaker(bind=engine)
-    return Session()
-
-
-@contextmanager
-def session_scope_thread_unaware():
-    # http://docs.sqlalchemy.org/en/latest/orm/session_basics.html#session-faq-whentocreate  # noqa
-    session = get_database_session_thread_unaware()
-    try:
-        yield session
-        session.commit()
-    except:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+# def get_database_session_thread_unaware():
+#     engine = get_database_engine()
+#     Session = sessionmaker(bind=engine)
+#     return Session()
+#
+#
+# @contextmanager
+# def session_scope_thread_unaware():
+#     # http://docs.sqlalchemy.org/en/latest/orm/session_basics.html#session-faq-whentocreate  # noqa
+#     session = get_database_session_thread_unaware()
+#     try:
+#         yield session
+#         session.commit()
+#     except:
+#         session.rollback()
+#         raise
+#     finally:
+#         session.close()
 
 # -----------------------------------------------------------------------------
 # Thread-scoped versions
 # -----------------------------------------------------------------------------
 # http://docs.sqlalchemy.org/en/latest/orm/contextual.html
+# https://writeonly.wordpress.com/2009/07/16/simple-read-only-sqlalchemy-sessions/  # noqa
+# http://docs.sqlalchemy.org/en/latest/orm/session_api.html
 
-def get_database_session_thread_scope():
+def noflush_readonly(*args, **kwargs):
+    logger.warning("Attempt to flush() a readonly database session blocked")
+
+
+def get_database_session_thread_scope(readonly=False, autoflush=True):
+    if readonly:
+        autoflush = False
     engine = get_database_engine()
-    session_factory = sessionmaker(bind=engine)
+    session_factory = sessionmaker(bind=engine, autoflush=autoflush)
     Session = scoped_session(session_factory)
-    return Session()
+    session = Session()
+    if readonly:
+        session.flush = noflush_readonly
+    return session
+
 
 @contextmanager
-def session_thread_scope():
-    session = get_database_session_thread_scope()
+def session_thread_scope(readonly=False):
+    session = get_database_session_thread_scope(readonly)
     try:
         yield session
-        session.commit()
+        if not readonly:
+            session.commit()
     except:
         session.rollback()
         raise

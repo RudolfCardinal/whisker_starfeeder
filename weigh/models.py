@@ -151,9 +151,14 @@ class RfidConfig(SerialPortConfigMixin, Base):
         SerialPortConfigMixin.__init__(self, **kwargs)
 
     def __repr__(self):
-        return "<RfidConfig(name={}, {})>".format(
-            repr(self.name),
-            self.repr_component_serial_port())
+        return (
+            "<RfidConfig(name={}, master_config_id={}, keep={}, enabled={}, "
+            "{})>".format(
+                repr(self.name),
+                self.master_config_id,
+                self.keep,
+                self.enabled,
+                self.repr_component_serial_port()))
 
     def __str__(self):
         return "{}{}: {}".format(
@@ -173,6 +178,19 @@ class RfidConfig(SerialPortConfigMixin, Base):
 # Balance
 # =============================================================================
 
+
+class CalibrationReport(object):
+    def __init__(self, balance_id, zero_value, refload_value):
+        self.balance_id = balance_id
+        self.zero_value = zero_value
+        self.refload_value = refload_value
+
+    def __str__(self):
+        return (
+            "Calibrating balance {}: zero_value={}, refload_value={}".format(
+                self.balance_id, self.zero_value, self.refload_value))
+
+
 class BalanceConfig(SerialPortConfigMixin, Base):
     __tablename__ = 'balance_config'
     id = Column(Integer, primary_key=True)
@@ -181,6 +199,14 @@ class BalanceConfig(SerialPortConfigMixin, Base):
     name = Column(String)
     keep = Column(Boolean)
     enabled = Column(Boolean)
+    measurement_rate_hz = Column(Integer)
+    stability_n = Column(Integer)
+    tolerance_kg = Column(Float)
+    min_mass_kg = Column(Float)
+    refload_mass_kg = Column(Float)
+    zero_value = Column(Integer)
+    refload_value = Column(Integer)
+    read_continuously = Column(Boolean)
 
     # One-to-one relationship:
     reader = relationship("RfidConfig",
@@ -191,6 +217,12 @@ class BalanceConfig(SerialPortConfigMixin, Base):
         self.master_config_id = kwargs.pop('master_config_id')
         self.keep = kwargs.pop('keep', False)
         self.enabled = kwargs.pop('enabled', True)
+        self.measurement_rate_hz = kwargs.pop('measurement_rate_hz', 6)
+        self.stability_n = kwargs.pop('stability_n', 5)
+        self.tolerance_kg = kwargs.pop('tolerance_kg', 0.005)
+        self.min_mass_kg = kwargs.pop('min_mass_kg', 0.050)
+        self.refload_mass_kg = kwargs.pop('refload_mass_kg', 0.1)
+        self.read_continuously = kwargs.pop('read_continuously', False)
         kwargs.setdefault('baudrate', 9600)
         kwargs.setdefault('bytesize', serial.EIGHTBITS)
         kwargs.setdefault('parity', serial.PARITY_EVEN)
@@ -201,9 +233,18 @@ class BalanceConfig(SerialPortConfigMixin, Base):
         SerialPortConfigMixin.__init__(self, **kwargs)
 
     def __repr__(self):
-        return "<BalanceConfig(name={}, {})>".format(
-            repr(self.name),
-            self.repr_component_serial_port())
+        return (
+            "<BalanceConfig(name={}, master_config_id={}, keep={}, "
+            "enabled={}, measurement_rate_hz={}, stability_n={}, "
+            "tolerance_kg={}, min_mass_kg={}, refload_mass_kg={}, "
+            "zero_value={}, refload_value={}, read_continuously={}, "
+            "{})>".format(
+                repr(self.name),
+                self.master_config_id, self.keep,
+                self.enabled, self.measurement_rate_hz, self.stability_n,
+                self.tolerance_kg, self.min_mass_kg, self.refload_mass_kg,
+                self.zero_value, self.refload_value, self.read_continuously,
+                self.repr_component_serial_port()))
 
     def __str__(self):
         return "{}{}: {}".format(
@@ -284,10 +325,11 @@ class RfidSingleEvent(object):
     dozens of these get generated in a very short space of time.
     What is of more behavioural interest is the RfidEvent, below.
     """
-    def __init__(self, reader_id, rfid, timestamp):
+    def __init__(self, reader_id, rfid, timestamp, balance_id=None):
         self.reader_id = reader_id
         self.rfid = rfid
         self.timestamp = timestamp
+        self.balance_id = balance_id  # destination balance, or None
 
     def __repr__(self):
         return (
@@ -390,36 +432,34 @@ class RfidEvent(Base):
 # =============================================================================
 
 class MassSingleEvent(object):
-    def __init__(self, balance_id, mass, units, timestamp):
+    def __init__(self, balance_id, reader_id, mass_kg, timestamp):
         self.balance_id = balance_id
-        self.mass = mass
-        self.units = units
+        self.reader_id = reader_id
+        self.mass_kg = mass_kg
         self.timestamp = timestamp
-
-    def get_kg(self):
-        if self.units == "mg":
-            return self.mass / 1000000
-        elif self.units == "g":
-            return self.mass / 1000
-        elif self.units == "kg":
-            return self.mass
-        else:
-            raise ValueError("Unknown mass units: {}".format(self.units))
 
     def __repr__(self):
         return (
-            "<MassSingleEvent(balance_id={}, mass={}, units={}, "
+            "<MassSingleEvent(balance_id={}, reader_id={}, mass_kg={} "
             "timestamp='{}')>".format(
-                self.balance_id, self.mass, self.units))
+                self.balance_id, self.reader_id, self.mass, self.timestamp))
 
     def __str__(self):
-        return "Balance {}: {} {} = {} kg".format(
-            self.balance_id, self.mass, self.units, self.get_kg())
+        return "Balance {}: {} kg".format(self.balance_id, self.mass_kg)
 
 
 # =============================================================================
 # Mass detected from a specific RFID-identified individual
 # =============================================================================
+
+class MassIdentSimpleObject(object):
+    def __init__(self, rfid, reader_id, balance_id, at, mass_kg):
+        self.rfid = rfid
+        self.reader_id = reader_id
+        self.balance_id = balance_id
+        self.at = at
+        self.mass_kg = mass_kg
+
 
 class MassIdentifiedEvent(Base):
     __tablename__ = 'mass_event'
@@ -438,11 +478,9 @@ class MassIdentifiedEvent(Base):
 
     def __repr__(self):
         return (
-            "<Weight("
-            "id={}, reader={}, rfid='{}', at='{}', "
-            "mass={}, units='{}', mass_kg={})>".format(
-                self.id, self.reader, self.rfid, self.at,
-                self.mass, self.units, self.mass_kg,
+            "<MassIdentifiedEvent("
+            "id={}, reader={}, rfid='{}', at='{}', mass_kg={})>".format(
+                self.id, self.reader, self.rfid, self.at, self.mass_kg,
             )
         )
 
@@ -450,15 +488,11 @@ class MassIdentifiedEvent(Base):
     def record_mass_detection(cls, session, mass_single_event,
                               rfid_effective_time_s):
         balance_id = mass_single_event.balance_id
+        reader_id = mass_single_event.reader_id
         balance = session.query(BalanceConfig).get(balance_id)
         if balance is None:
             logger.critical("No such balance ID {}".format(balance_id))
             return None
-        if balance.reader is None:
-            logger.critical("Balance {} has no RFID reader paired".format(
-                mass_single_event.balance_id))
-            return None
-        reader_id = balance.reader.id
         rfid_event = RfidEvent.get_ongoing_event_at_reader(
             session,
             reader_id,
@@ -472,9 +506,15 @@ class MassIdentifiedEvent(Base):
             reader_id=reader_id,
             balance_id=mass_single_event.balance_id,
             at=mass_single_event.timestamp,
-            mass_kg=mass_single_event.get_kg(),
+            mass_kg=mass_single_event.mass_kg,
         )
         session.add(mass_identified_event)
         balance.keep = True  # never delete it now
         session.commit()
-        return mass_identified_event
+        return MassIdentSimpleObject(
+            rfid=mass_identified_event.rfid,
+            reader_id=mass_identified_event.reader_id,
+            balance_id=mass_identified_event.balance_id,
+            at=mass_identified_event.at,
+            mass_kg=mass_identified_event.mass_kg,
+        )
