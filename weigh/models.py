@@ -333,8 +333,10 @@ class RfidSingleEvent(object):
 
     def __repr__(self):
         return (
-            "<RfidSingleEvent(reader_id={}, rfid={}, timestamp='{}')>".format(
-                self.reader_id, self.rfid, str(self.timestamp)))
+            "<RfidSingleEvent(reader_id={}, rfid={}, timestamp='{}' "
+            "balance_id={})>".format(
+                self.reader_id, self.rfid, str(self.timestamp),
+                self.balance_id))
 
 
 # =============================================================================

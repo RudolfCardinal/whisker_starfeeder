@@ -316,7 +316,10 @@ class BalanceController(SerialController):
     def on_rfid(self, rfid_single_event):
         if (rfid_single_event.reader_id != self.reader_id
                 or rfid_single_event.balance_id != self.balance_id):
-            self.warning("Bad on_rfid message received")
+            self.warning("Bad on_rfid message received: {}".format(
+                repr(rfid_single_event)))
+            self.warning("self.reader_id={}, self.balance_id={}".format(
+                self.reader_id, self.balance_id))
             return
         read_until = rfid_single_event.timestamp + datetime.timedelta(
             seconds=self.rfid_effective_time_s)

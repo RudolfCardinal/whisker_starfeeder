@@ -638,3 +638,12 @@ TO DO
 *** test weighing logic
 *** specific animal minimum/maximum weight: best done in the database later?
 *** sequence goes wrong if tare (or presumably calibrate) during balance startup
+*** Check if view configuration breaks background task by locking database
+*** when not continously scanning: "Bad on_rfid message received"
+    ... wrong balance_id in the Rfid classes; ?inserted a new balance and the
+    backreference wasn't updated? *** needs fixing
+*** check re-taring works properly (shifting the reference value too)
+    ... i.e. check with real weights
+*** check database weights work properly
+    ? *** ? implement "weight value lasts..." option for animals that sit there
+    continuously activating RFID + stable weight? (like the RFID recording?)
