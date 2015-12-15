@@ -627,23 +627,21 @@ Concepts around detecting mass from an identified animal
   if it receives that and it's not scanning, it can start; if it is already
   scanning, it can alter the end time if necessary; if the MSV scan finishes
   before the <datetime> then it can have another run.
-  *** add whether currently scanning or not to balance status
-  *** IMPLEMENT
 
 ===============================================================================
 TO DO
 ===============================================================================
 
 *** balance filtering (ASF, FMD)
-*** test weighing logic
 *** specific animal minimum/maximum weight: best done in the database later?
 *** sequence goes wrong if tare (or presumably calibrate) during balance startup
 *** Check if view configuration breaks background task by locking database
-*** when not continously scanning: "Bad on_rfid message received"
-    ... wrong balance_id in the Rfid classes; ?inserted a new balance and the
-    backreference wasn't updated? *** needs fixing
-*** check re-taring works properly (shifting the reference value too)
-    ... i.e. check with real weights
 *** check database weights work properly
     ? *** ? implement "weight value lasts..." option for animals that sit there
     continuously activating RFID + stable weight? (like the RFID recording?)
+    *** probably needs design check with end user
+*** in any case, identified mass events should hold an FK to the RFID record??
+    ... maybe not using the DB relationship (FK) explicitly, in case the
+    threaded INSERTs occur out of sync??
+*** pyserial 3.0b breaks pyinstaller; sort out manually
+*** copyright messages

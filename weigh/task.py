@@ -11,7 +11,6 @@ from weigh.db import session_thread_scope
 from weigh.models import (
     BalanceConfig,
     MassIdentifiedEvent,
-    MassIdentSimpleObject,
     MasterConfig,
     RfidConfig,
     RfidEvent,
@@ -21,7 +20,7 @@ from weigh.whisker_qt import WhiskerTask
 
 class WeightWhiskerTask(WhiskerTask):
     """Doesn't define an end, deliberately."""
-    identified_mass_received = Signal(MassIdentSimpleObject)
+    identified_mass_received = Signal(object)
     # ... best not to pass the SQLAlchemy ORM model, but a dict copy
 
     def __init__(self, wcm_prefix="", parent=None, name="whisker_task",

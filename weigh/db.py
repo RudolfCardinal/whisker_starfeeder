@@ -14,6 +14,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from weigh.alembic_current_revision import ALEMBIC_CURRENT_REVISION
+from weigh.lang import OrderedNamespace
 from weigh.settings import DATABASE_ENGINE
 
 
@@ -131,6 +132,7 @@ def get_database_engine(sqlite=True):
 #     finally:
 #         session.close()
 
+
 # -----------------------------------------------------------------------------
 # Thread-scoped versions
 # -----------------------------------------------------------------------------
@@ -166,3 +168,39 @@ def session_thread_scope(readonly=False):
         raise
     finally:
         session.close()
+
+
+# =============================================================================
+# Mixin to:
+# - get plain dictionary-like object (with attributes so we can use x.y rather
+#   than x['y']) from an SQLAlchemy ORM object
+# - make a nice repr() default, maintaining field order
+# =============================================================================
+
+class SqlAlchemyAttrDictMixin(object):
+    # See http://stackoverflow.com/questions/2537471
+    # but more: http://stackoverflow.com/questions/2441796
+    def get_attrdict(self):
+        """
+        Returns what looks like a plain object with the values of the
+        SQLAlchemy ORM object.
+        """
+        columns = self.__table__.columns.keys()
+        values = (getattr(self, x) for x in columns)
+        zipped = zip(columns, values)
+        return OrderedNamespace(zipped)
+
+    def __repr__(self):
+        return "<{classname}({kvp})>".format(
+            classname=type(self).__name__,
+            kvp=", ".join("{}={}".format(k, repr(v))
+                          for k, v in self.get_attrdict().items())
+        )
+
+    @classmethod
+    def from_attrdict(cls, attrdict):
+        """
+        Builds a new instance of the ORM object from values in an attrdict.
+        """
+        dictionary = attrdict.__dict__
+        return cls(**dictionary)

@@ -42,8 +42,8 @@ CMD_QUERY_IDENTIFICATION = "IDN?"  # p48
 CMD_QUERY_STATUS = "ESR?"  # p58
 
 # Signal processing and measurement; see summary on p6
-CMD_SET_FILTER = "ASF"  # p37 ***
-CMD_FILTER_TYPE = "FMD"  # p37 ***
+CMD_SET_FILTER = "ASF"  # p37
+CMD_FILTER_TYPE = "FMD"  # p37
 CMD_DEACTIVATE_OUTPUT_SCALING = "NOV0"  # p31
 # ... I can't get any NOV command (apart from the query, NOV?) to produce
 # anything other than '?'.
@@ -83,10 +83,11 @@ BAUDRATE_REGEX = re.compile(r"^(\d+),(\d)$")  # e.g. 09600,1
 
 
 class BalanceController(SerialController):
-    mass_received = Signal(MassSingleEvent)
+    raw_mass_received = Signal(MassSingleEvent)
+    stable_mass_received = Signal(MassSingleEvent)
     calibrated = Signal(CalibrationReport)
 
-    def __init__(self, balance_id, reader_id, serial_args,
+    def __init__(self, balance_id, balance_name, reader_id, serial_args,
                  stability_n, tolerance_kg, min_mass_kg,
                  measurement_rate_hz, read_continuously,
                  zero_value, refload_value, refload_mass_kg,
@@ -101,6 +102,7 @@ class BalanceController(SerialController):
         """
         super().__init__(**kwargs)
         self.balance_id = balance_id
+        self.balance_name = balance_name
         self.reader_id = reader_id
         self.serial_args = serial_args
         self.stability_n = stability_n
@@ -124,7 +126,7 @@ class BalanceController(SerialController):
         self.reset_timer_2.timeout.connect(self.reset_3)
         self.command_queue = []
         self.n_pending_measurements = 0
-        self.read_until = datetime.datetime.utcnow()
+        self.when_to_read_until = datetime.datetime.utcnow()
         self.max_value = 100000  # default (NOV command) is 100,000
         self.recent_measurements_kg = []
         self.pending_calibrate = False
@@ -188,12 +190,12 @@ class BalanceController(SerialController):
         self.command_queue.extend(
             [CMD_QUERY_MEASURE] * (self.measurements_per_batch - 1))
 
-    def read_until(self, read_until):
-        self.read_until = read_until
+    def read_until(self, when_to_read_until):
+        self.when_to_read_until = when_to_read_until
         now = datetime.datetime.utcnow()
         if self.read_continuously:
             return  # already measuring
-        if self.n_pending_measurements == 0 and now < read_until:
+        if self.n_pending_measurements == 0 and now < when_to_read_until:
             self.start_measuring()
 
     def tare(self):
@@ -254,6 +256,13 @@ class BalanceController(SerialController):
         while len(self.recent_measurements_kg) >= self.stability_n:
             self.recent_measurements_kg.pop(0)
         self.recent_measurements_kg.append(mass_kg)
+        mass_single_event = MassSingleEvent(
+            balance_id=self.balance_id,
+            reader_id=self.reader_id,
+            mass_kg=mass_kg,
+            timestamp=timestamp,
+        )
+        self.raw_mass_received.emit(mass_single_event)
 
         # Do we have a stable mass?
         if mass_kg < self.min_mass_kg:
@@ -270,14 +279,8 @@ class BalanceController(SerialController):
             return
 
         # We have a stable mass!
-        mass_single_event = MassSingleEvent(
-            balance_id=self.balance_id,
-            reader_id=self.reader_id,
-            mass_kg=mass_kg,
-            timestamp=timestamp,
-        )
         self.debug("Stable mass: {}".format(str(mass_single_event)))
-        self.mass_received.emit(mass_single_event)
+        self.stable_mass_received.emit(mass_single_event)
 
     def tare_with(self, value):
         self.debug("tare_with: {}".format(value))
@@ -307,9 +310,10 @@ class BalanceController(SerialController):
 
     def report_calibration(self):
         report = CalibrationReport(
-            balance_id=self.balance_id,
+            balance_name=self.balance_name,
             zero_value=self.zero_value,
             refload_value=self.refload_value,
+            refload_mass_kg=self.refload_mass_kg,
         )
         self.calibrated.emit(report)
 
@@ -321,9 +325,9 @@ class BalanceController(SerialController):
             self.warning("self.reader_id={}, self.balance_id={}".format(
                 self.reader_id, self.balance_id))
             return
-        read_until = rfid_single_event.timestamp + datetime.timedelta(
+        when_to_read_until = rfid_single_event.timestamp + datetime.timedelta(
             seconds=self.rfid_effective_time_s)
-        self.read_until(read_until)
+        self.read_until(when_to_read_until)
 
     def on_receive(self, data, timestamp):
         data = data.decode("ascii")
@@ -351,7 +355,8 @@ class BalanceController(SerialController):
             self.debug("n_pending_measurements: {}".format(
                 self.n_pending_measurements))
             if self.n_pending_measurements == 0:
-                if self.read_continuously or timestamp < self.read_until:
+                if (self.read_continuously
+                        or timestamp < self.when_to_read_until):
                     self.debug("Finished measuring; restarting")
                     self.start_measuring()
         elif (cmd in [CMD_QUERY_BAUD_RATE, CMD_SET_BAUD_RATE]
@@ -400,7 +405,8 @@ class BalanceController(SerialController):
 
 
 class BalanceOwner(SerialOwner):
-    mass_received = Signal(MassSingleEvent)
+    raw_mass_received = Signal(MassSingleEvent)
+    stable_mass_received = Signal(MassSingleEvent)
     ping_requested = Signal()
     tare_requested = Signal()
     calibration_requested = Signal()
@@ -422,6 +428,7 @@ class BalanceOwner(SerialOwner):
             controller_class=BalanceController,
             controller_kwargs=dict(
                 balance_id=balance_config.id,
+                balance_name=balance_config.name,
                 reader_id=balance_config.reader_id,
                 serial_args=serial_args,
                 stability_n=balance_config.stability_n,
@@ -442,6 +449,8 @@ class BalanceOwner(SerialOwner):
         self.ping_requested.connect(self.controller.ping)
         self.tare_requested.connect(self.controller.tare)
         self.calibration_requested.connect(self.controller.calibrate)
+        self.controller.raw_mass_received.connect(self.raw_mass_received)
+        self.controller.stable_mass_received.connect(self.stable_mass_received)
         self.controller.calibrated.connect(self.calibrated)
 
     def ping(self):

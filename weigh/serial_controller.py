@@ -16,6 +16,7 @@ from PySide.QtCore import (
     # Slot,
 )
 import serial
+# pySerial 3: http://pyserial.readthedocs.org/en/latest/pyserial.html
 
 from weigh.constants import ThreadOwnerState
 from weigh.qt import StatusMixin
@@ -455,7 +456,7 @@ class SerialOwner(QObject, StatusMixin):
             portset['write_timeout'] = sp.write_timeout
             portset['inter_byte_timeout'] = sp.inter_byte_timeout
             self.status("Serial port settings: " + ", ".join(
-                "{}={}".format(k, v) for k,v in portset.items()))
+                "{}={}".format(k, v) for k, v in portset.items()))
 
             portinfo = OrderedDict()
             portinfo['in_waiting'] = sp.in_waiting

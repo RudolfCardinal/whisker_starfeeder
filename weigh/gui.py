@@ -742,7 +742,7 @@ class CalibrateBalancesWindow(QDialog):
 
         grid = QGridLayout()
         for i, balance in enumerate(balance_owners):
-            grid.addWidget(QLabel("Balance {}: {}".format(
+            grid.addWidget(QLabel("Balance {}:".format(
                 balance.balance_id, balance.name)), i, 0)
             tare_button = QPushButton("Tare")
             tare_button.clicked.connect(balance.tare)

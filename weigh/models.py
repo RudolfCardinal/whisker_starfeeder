@@ -21,7 +21,8 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship
 
-from weigh.lang import trunc_if_integer
+from weigh.db import SqlAlchemyAttrDictMixin
+from weigh.lang import ordered_repr, simple_repr, trunc_if_integer
 
 # =============================================================================
 # Constants for Alembic
@@ -80,15 +81,9 @@ class SerialPortConfigMixin(object):
         self.rtscts = rtscts
         self.dsrdtr = dsrdtr
 
-    def repr_component_serial_port(self):
-        return (
-            "port={}, bytesize={}, parity={}, stopbits={}, "
-            "xonxoff={}, rtscts={}, dsrdtr={}".format(
-                repr(self.port), self.bytesize, self.parity,
-                trunc_if_integer(self.stopbits),
-                self.xonxoff, self.rtscts, self.dsrdtr,
-            )
-        )
+    def fields_component_serial_port(self):
+        return ['port', 'bytesize', 'parity', 'stopbits',
+                'xonxoff', 'rtscts', 'dsrdtr']
 
     def str_component_serial_port(self):
         flowmethods = []
@@ -128,7 +123,7 @@ class SerialPortConfigMixin(object):
 # RFID
 # =============================================================================
 
-class RfidConfig(SerialPortConfigMixin, Base):
+class RfidConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     __tablename__ = 'rfid_config'
     id = Column(Integer, primary_key=True)
     master_config_id = Column(Integer, ForeignKey('master_config.id'))
@@ -151,14 +146,10 @@ class RfidConfig(SerialPortConfigMixin, Base):
         SerialPortConfigMixin.__init__(self, **kwargs)
 
     def __repr__(self):
-        return (
-            "<RfidConfig(name={}, master_config_id={}, keep={}, enabled={}, "
-            "{})>".format(
-                repr(self.name),
-                self.master_config_id,
-                self.keep,
-                self.enabled,
-                self.repr_component_serial_port()))
+        return ordered_repr(
+            self,
+            ['id', 'master_config_id', 'name', 'keep',
+             'enabled'] + self.fields_component_serial_port())
 
     def __str__(self):
         return "{}{}: {}".format(
@@ -178,20 +169,23 @@ class RfidConfig(SerialPortConfigMixin, Base):
 # Balance
 # =============================================================================
 
-
 class CalibrationReport(object):
-    def __init__(self, balance_id, zero_value, refload_value):
-        self.balance_id = balance_id
+    def __init__(self, balance_name, zero_value, refload_value,
+                 refload_mass_kg):
+        self.balance_name = balance_name
         self.zero_value = zero_value
         self.refload_value = refload_value
+        self.refload_mass_kg = refload_mass_kg
 
     def __str__(self):
         return (
-            "Calibrating balance {}: zero_value={}, refload_value={}".format(
-                self.balance_id, self.zero_value, self.refload_value))
+            "Calibrated balance {}: zero value = {}, "
+            "loaded value = {} (at {} kg)".format(
+                self.balance_name, self.zero_value,
+                self.refload_value, self.refload_mass_kg))
 
 
-class BalanceConfig(SerialPortConfigMixin, Base):
+class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     __tablename__ = 'balance_config'
     id = Column(Integer, primary_key=True)
     master_config_id = Column(Integer, ForeignKey('master_config.id'))
@@ -233,18 +227,13 @@ class BalanceConfig(SerialPortConfigMixin, Base):
         SerialPortConfigMixin.__init__(self, **kwargs)
 
     def __repr__(self):
-        return (
-            "<BalanceConfig(name={}, master_config_id={}, keep={}, "
-            "enabled={}, measurement_rate_hz={}, stability_n={}, "
-            "tolerance_kg={}, min_mass_kg={}, refload_mass_kg={}, "
-            "zero_value={}, refload_value={}, read_continuously={}, "
-            "{})>".format(
-                repr(self.name),
-                self.master_config_id, self.keep,
-                self.enabled, self.measurement_rate_hz, self.stability_n,
-                self.tolerance_kg, self.min_mass_kg, self.refload_mass_kg,
-                self.zero_value, self.refload_value, self.read_continuously,
-                self.repr_component_serial_port()))
+        return ordered_repr(
+            self,
+            ['id', 'master_config_id', 'reader_id', 'name', 'keep',
+             'enabled', 'measurement_rate_hz', 'stability_n',
+             'tolerance_kg', 'min_mass_kg', 'refload_mass_kg',
+             'zero_value', 'refload_value', 'read_continuously'
+             ] + self.fields_component_serial_port())
 
     def __str__(self):
         return "{}{}: {}".format(
@@ -264,7 +253,7 @@ class BalanceConfig(SerialPortConfigMixin, Base):
 # Program configuration
 # =============================================================================
 
-class MasterConfig(Base):
+class MasterConfig(SqlAlchemyAttrDictMixin, Base):
     __tablename__ = 'master_config'
 
     id = Column(Integer, primary_key=True)
@@ -283,16 +272,6 @@ class MasterConfig(Base):
         self.port = kwargs.pop('port', 3233)
         self.wcm_prefix = kwargs.pop('wcm_prefix', 'starfeeder')
         self.rfid_effective_time_s = kwargs.pop('rfid_effective_time_s', 5.0)
-
-    def __repr__(self):
-        return (
-            "<Config("
-            "name={}, modified_at='{}', server={}, "
-            "port={})>".format(
-                repr(self.name), str(self.created_at), repr(self.server),
-                self.port,
-            )
-        )
 
     @classmethod
     def get_latest_or_create(cls, session):
@@ -332,18 +311,14 @@ class RfidSingleEvent(object):
         self.balance_id = balance_id  # destination balance, or None
 
     def __repr__(self):
-        return (
-            "<RfidSingleEvent(reader_id={}, rfid={}, timestamp='{}' "
-            "balance_id={})>".format(
-                self.reader_id, self.rfid, str(self.timestamp),
-                self.balance_id))
+        return simple_repr(self)
 
 
 # =============================================================================
 # RFID recording class, glossing over irrelevant duplication
 # =============================================================================
 
-class RfidEvent(Base):
+class RfidEvent(SqlAlchemyAttrDictMixin, Base):
     """
     See rfid.py for a discussion of the RFID tag format.
     Upshot: it'll fit into a 64-bit integer, so we use BigInteger.
@@ -412,18 +387,6 @@ class RfidEvent(Base):
         session.commit()
         return event
 
-    def __repr__(self):
-        return (
-            "<RfidEvent(reader_id={}, rfid={}, first_detected_at='{}', "
-            "last_detected_at='{}', n_events={}".format(
-                self.reader_id,
-                self.rfid,
-                str(self.first_detected_at),
-                str(self.last_detected_at),
-                self.n_events,
-            )
-        )
-
 
 # While a free-floating ID at a particular reader may be of interest,
 # a free-floating mass with no ID attached is not of interest.
@@ -441,10 +404,9 @@ class MassSingleEvent(object):
         self.timestamp = timestamp
 
     def __repr__(self):
-        return (
-            "<MassSingleEvent(balance_id={}, reader_id={}, mass_kg={} "
-            "timestamp='{}')>".format(
-                self.balance_id, self.reader_id, self.mass, self.timestamp))
+        return ordered_repr(
+            self,
+            ['balance_id', 'reader_id', 'mass_kg', 'timestamp'])
 
     def __str__(self):
         return "Balance {}: {} kg".format(self.balance_id, self.mass_kg)
@@ -454,16 +416,7 @@ class MassSingleEvent(object):
 # Mass detected from a specific RFID-identified individual
 # =============================================================================
 
-class MassIdentSimpleObject(object):
-    def __init__(self, rfid, reader_id, balance_id, at, mass_kg):
-        self.rfid = rfid
-        self.reader_id = reader_id
-        self.balance_id = balance_id
-        self.at = at
-        self.mass_kg = mass_kg
-
-
-class MassIdentifiedEvent(Base):
+class MassIdentifiedEvent(SqlAlchemyAttrDictMixin, Base):
     __tablename__ = 'mass_event'
 
     id = Column(Integer, primary_key=True)
@@ -478,17 +431,10 @@ class MassIdentifiedEvent(Base):
     # How heavy?
     mass_kg = Column(Float)
 
-    def __repr__(self):
-        return (
-            "<MassIdentifiedEvent("
-            "id={}, reader={}, rfid='{}', at='{}', mass_kg={})>".format(
-                self.id, self.reader, self.rfid, self.at, self.mass_kg,
-            )
-        )
-
     @classmethod
     def record_mass_detection(cls, session, mass_single_event,
                               rfid_effective_time_s):
+        """Returns an OrderedNamespace object, not an SQLAlchemy ORM object."""
         balance_id = mass_single_event.balance_id
         reader_id = mass_single_event.reader_id
         balance = session.query(BalanceConfig).get(balance_id)
@@ -513,10 +459,20 @@ class MassIdentifiedEvent(Base):
         session.add(mass_identified_event)
         balance.keep = True  # never delete it now
         session.commit()
-        return MassIdentSimpleObject(
-            rfid=mass_identified_event.rfid,
-            reader_id=mass_identified_event.reader_id,
-            balance_id=mass_identified_event.balance_id,
-            at=mass_identified_event.at,
-            mass_kg=mass_identified_event.mass_kg,
-        )
+        return mass_identified_event.get_attrdict()
+
+"""
+from weigh.models import (
+    MassIdentifiedEvent,
+    RfidConfig,
+    BalanceConfig,
+    MasterConfig,
+)
+from weigh.db import get_database_session_thread_scope
+session = get_database_session_thread_scope()
+m = session.query(MassIdentifiedEvent).get(1)
+r = session.query(RfidConfig).get(1)
+b1 = session.query(BalanceConfig).get(1)
+b2 = session.query(BalanceConfig).get(2)
+c = session.query(MasterConfig).get(1)
+"""

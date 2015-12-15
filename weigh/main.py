@@ -286,9 +286,9 @@ class BaseWindow(QMainWindow):
                 balance.status_sent.connect(self.on_status)
                 balance.error_sent.connect(self.on_status)
                 balance.finished.connect(self.something_finished)
-                balance.controller.mass_received.connect(
-                    self.whisker_task.on_mass)
-                balance.controller.mass_received.connect(self.on_mass)
+                balance.stable_mass_received.connect(self.whisker_task.on_mass)
+                balance.stable_mass_received.connect(self.on_stable_mass)
+                balance.raw_mass_received.connect(self.on_raw_mass)
                 balance.calibrated.connect(self.on_calibrated)
                 self.balance_list.append(balance)
                 self.balance_id_to_obj[balance.balance_id] = balance
@@ -457,12 +457,14 @@ class BaseWindow(QMainWindow):
         self.status_grid.addWidget(QLabel("Last RFID seen"), 0, 1, ALIGNMENT)
         self.status_grid.addWidget(QLabel("At"), 0, 2, ALIGNMENT)
         self.status_grid.addWidget(QLabel("Balance"), 0, 3, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("Mass (kg)"), 0, 4, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("Raw mass (kg)"), 0, 4, ALIGNMENT)
         self.status_grid.addWidget(QLabel("At"), 0, 5, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("Stable mass (kg)"), 0, 6, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("At"), 0, 7, ALIGNMENT)
         self.status_grid.addWidget(QLabel("Identified mass (kg)"),
-                                   0, 6, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("RFID"), 0, 7, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("At"), 0, 8, ALIGNMENT)
+                                   0, 8, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("RFID"), 0, 9, ALIGNMENT)
+        self.status_grid.addWidget(QLabel("At"), 0, 10, ALIGNMENT)
 
         self.rfid_labels_rfid = []
         self.rfid_labels_at = []
@@ -482,8 +484,10 @@ class BaseWindow(QMainWindow):
 
             row += 1
 
-        self.balance_labels_mass = []
-        self.balance_labels_mass_at = []
+        self.balance_labels_raw_mass = []
+        self.balance_labels_raw_mass_at = []
+        self.balance_labels_stable_mass = []
+        self.balance_labels_stable_mass_at = []
         self.balance_labels_idmass = []
         self.balance_labels_rfid = []
         self.balance_labels_idmass_at = []
@@ -493,27 +497,33 @@ class BaseWindow(QMainWindow):
                 QLabel("{}: {}".format(balance.balance_id, balance.name)),
                 row, 3, ALIGNMENT)
 
-            balance_label_mass = QLabel("-")
-            self.status_grid.addWidget(balance_label_mass, row, 4, ALIGNMENT)
-            self.balance_labels_mass.append(balance_label_mass)
+            label = QLabel("-")
+            self.status_grid.addWidget(label, row, 4, ALIGNMENT)
+            self.balance_labels_raw_mass.append(label)
 
-            balance_label_mass_at = QLabel("-")
-            self.status_grid.addWidget(balance_label_mass_at,
-                                       row, 5, ALIGNMENT)
-            self.balance_labels_mass_at.append(balance_label_mass_at)
+            label = QLabel("-")
+            self.status_grid.addWidget(label, row, 5, ALIGNMENT)
+            self.balance_labels_raw_mass_at.append(label)
 
-            balance_label_idmass = QLabel("-")
-            self.status_grid.addWidget(balance_label_idmass, row, 6, ALIGNMENT)
-            self.balance_labels_idmass.append(balance_label_idmass)
+            label = QLabel("-")
+            self.status_grid.addWidget(label, row, 6, ALIGNMENT)
+            self.balance_labels_stable_mass.append(label)
 
-            balance_label_rfid = QLabel("-")
-            self.status_grid.addWidget(balance_label_rfid, row, 7, ALIGNMENT)
-            self.balance_labels_rfid.append(balance_label_rfid)
+            label = QLabel("-")
+            self.status_grid.addWidget(label, row, 7, ALIGNMENT)
+            self.balance_labels_stable_mass_at.append(label)
 
-            balance_label_idmass_at = QLabel("-")
-            self.status_grid.addWidget(balance_label_idmass_at,
-                                       row, 8, ALIGNMENT)
-            self.balance_labels_idmass_at.append(balance_label_idmass_at)
+            label = QLabel("-")
+            self.status_grid.addWidget(label, row, 8, ALIGNMENT)
+            self.balance_labels_idmass.append(label)
+
+            label = QLabel("-")
+            self.status_grid.addWidget(label, row, 9, ALIGNMENT)
+            self.balance_labels_rfid.append(label)
+
+            label = QLabel("-")
+            self.status_grid.addWidget(label, row, 10, ALIGNMENT)
+            self.balance_labels_idmass_at.append(label)
 
             row += 1
 
@@ -523,18 +533,25 @@ class BaseWindow(QMainWindow):
         self.rfid_labels_at[rfid_index].setText(
             rfid_single_event.timestamp.strftime(GUI_TIME_FORMAT))
 
-    def on_mass(self, mass_single_event):
+    def on_raw_mass(self, mass_single_event):
         rfid_index = self.rfid_id_to_idx[mass_single_event.reader_id]
-        self.balance_labels_mass[rfid_index].setText(
+        self.balance_labels_raw_mass[rfid_index].setText(
             GUI_MASS_FORMAT % mass_single_event.mass_kg)
-        self.balance_labels_mass_at[rfid_index].setText(
+        self.balance_labels_raw_mass_at[rfid_index].setText(
+            mass_single_event.timestamp.strftime(GUI_TIME_FORMAT))
+
+    def on_stable_mass(self, mass_single_event):
+        rfid_index = self.rfid_id_to_idx[mass_single_event.reader_id]
+        self.balance_labels_stable_mass[rfid_index].setText(
+            GUI_MASS_FORMAT % mass_single_event.mass_kg)
+        self.balance_labels_stable_mass_at[rfid_index].setText(
             mass_single_event.timestamp.strftime(GUI_TIME_FORMAT))
 
     def on_identified_mass(self, mie_obj):
-        """mie_obj: instance of MassIdentSimpleObject"""
+        """mie_obj: simple object, not SQLAlchemy ORM object"""
         rfid_index = self.rfid_id_to_idx[mie_obj.reader_id]
         self.balance_labels_idmass[rfid_index].setText(GUI_MASS_FORMAT
-                                                      % mie_obj.mass_kg)
+                                                       % mie_obj.mass_kg)
         self.balance_labels_rfid[rfid_index].setText(str(mie_obj.rfid))
         self.balance_labels_idmass_at[rfid_index].setText(
             mie_obj.at.strftime(GUI_TIME_FORMAT))

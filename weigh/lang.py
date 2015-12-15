@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # weigh/lang.py
 
+from collections import OrderedDict
 import inspect
 import re
 import sys
@@ -89,3 +90,76 @@ def get_caller_name(back=0):
     if class_name:
         return "{}.{}".format(class_name, function_name)
     return function_name
+
+
+# =============================================================================
+# AttrDict classes
+# =============================================================================
+
+class AttrDict(dict):
+    # As per http://stackoverflow.com/questions/4984647
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__dict__ = self
+
+
+class OrderedNamespace(object):
+    # http://stackoverflow.com/questions/455059
+    # ... modified for init
+    def __init__(self, *args):
+        super().__setattr__('_odict', OrderedDict(*args))
+
+    def __getattr__(self, key):
+        odict = super().__getattribute__('_odict')
+        if key in odict:
+            return odict[key]
+        return super().__getattribute__(key)
+
+    def __setattr__(self, key, val):
+        self._odict[key] = val
+
+    @property
+    def __dict__(self):
+        return self._odict
+
+    def __setstate__(self, state):  # Support copy.copy
+        super().__setattr__('_odict', OrderedDict())
+        self._odict.update(state)
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    # Plus more (RNC):
+    def items(self):
+        return self.__dict__.items()
+
+
+# =============================================================================
+# Repr assistance function
+# =============================================================================
+
+def ordered_repr(obj, attrlist):
+    """
+    Shortcut to make repr() functions ordered.
+    Define your repr like this:
+
+        def __repr__(self):
+            return ordered_repr(self, ["field1", "field2", "field3"])
+    """
+    return "<{classname}({kvp})>".format(
+        classname=type(obj).__name__,
+        kvp=", ".join("{}={}".format(a, repr(getattr(obj, a)))
+                      for a in attrlist)
+    )
+
+
+def simple_repr(obj):
+    """Even simpler."""
+    return "<{classname}({kvp})>".format(
+        classname=type(obj).__name__,
+        kvp=", ".join("{}={}".format(k, repr(v))
+                      for k, v in obj.__dict__.items())
+    )
