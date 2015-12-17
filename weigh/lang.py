@@ -136,6 +136,9 @@ class OrderedNamespace(object):
     def items(self):
         return self.__dict__.items()
 
+    def __repr__(self):
+        return ordered_repr(self, self.__dict__.keys())
+
 
 # =============================================================================
 # Repr assistance function

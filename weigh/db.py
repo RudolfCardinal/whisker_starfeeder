@@ -86,10 +86,18 @@ def ensure_migration_is_latest():
 # Functions to get database session, etc.
 # =============================================================================
 
-def get_database_engine(sqlite=True):
+def database_is_sqlite():
     database_url = get_database_url()
-    engine = create_engine(database_url, echo=DATABASE_ENGINE['echo'])
-    if not database_url.startswith("sqlite:"):
+    return database_url.startswith("sqlite:")
+
+
+def get_database_engine():
+    database_url = get_database_url()
+    engine = create_engine(database_url,
+                           echo=DATABASE_ENGINE['echo'],
+                           connect_args=DATABASE_ENGINE['connect_args'])
+    sqlite = database_is_sqlite()
+    if not sqlite:
         return engine
 
     # Hook in events to unbreak SQLite transaction support
@@ -144,6 +152,14 @@ def noflush_readonly(*args, **kwargs):
     logger.warning("Attempt to flush() a readonly database session blocked")
 
 
+# def nocommit_readonly(*args, **kwargs):
+#     logger.warning("Attempt to commit() a readonly database session blocked")
+
+
+# def norollback_readonly(*args, **kwargs):
+#     logger.warning("Attempt to rollback() a readonly database session blocked")
+
+
 def get_database_session_thread_scope(readonly=False, autoflush=True):
     if readonly:
         autoflush = False
@@ -153,6 +169,8 @@ def get_database_session_thread_scope(readonly=False, autoflush=True):
     session = Session()
     if readonly:
         session.flush = noflush_readonly
+        # session.commit = nocommit_readonly
+        # session.rollback = norollback_readonly
     return session
 
 
@@ -164,7 +182,8 @@ def session_thread_scope(readonly=False):
         if not readonly:
             session.commit()
     except:
-        session.rollback()
+        if not readonly:
+            session.rollback()
         raise
     finally:
         session.close()

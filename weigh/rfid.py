@@ -14,8 +14,8 @@ from weigh.serial_controller import (
     SerialController,
     SerialOwner,
 )
-from weigh.models import RfidSingleEvent
-
+from weigh.models import RfidEvent
+from weigh.qt import exit_on_exception
 
 CMD_RESET_1 = "x"  # response: "MULTITAG-125 01" (+/- "S" as a separate line)
 CMD_RESET_2 = "z"  # response: "MULTITAG-125 01"
@@ -117,25 +117,28 @@ class RfidController(SerialController):
       and the '\n' wil stop it.)
     - Commands/responses from [3].
     """
-    rfid_received = Signal(RfidSingleEvent)
+    rfid_received = Signal(RfidEvent)
 
-    def __init__(self, reader_id, balance_id, **kwargs):
+    def __init__(self, reader_config, balance_config, **kwargs):
         super().__init__(**kwargs)
-        self.reader_id = reader_id
-        self.balance_id = balance_id
+        self.reader_config = reader_config
+        self.balance_config = balance_config
         self.swallow_next_stopped_read = False
         self.reset_timer = QTimer()
         self.reset_timer.timeout.connect(self.reset_2)
 
+    @exit_on_exception
     def on_start(self):
         self.reset()
 
+    @exit_on_exception
     def on_stop(self):
         self.send(CMD_NO_OP_CANCEL)  # something to cancel any ongoing read
         self.finished.emit()
         # Inelegant! Risk the writer thread will be terminated before it
         # sends this command. Still, ho-hum.
 
+    @exit_on_exception
     def reset(self):
         self.info("Resetting RFID: phase 1")
         self.swallow_next_stopped_read = True
@@ -163,6 +166,7 @@ class RfidController(SerialController):
         self.info("Asking RFID to start reading")
         self.send(CMD_READING_CONTINUES)
 
+    @exit_on_exception
     def on_receive(self, data, timestamp):
         data = data.decode("ascii")
         self.info("Receiving at {}: {}".format(timestamp, repr(data)))
@@ -193,24 +197,22 @@ class RfidController(SerialController):
             self.info("rfid number = {}".format(rfid_number))
             # WATCH OUT. Signal "int" values are 32-bit. So we should
             # emit a Python object instead.
-            rfid_single_event = RfidSingleEvent(
-                reader_id=self.reader_id,
-                balance_id=self.balance_id,
+            rfid_event = RfidEvent(
+                reader_id=self.reader_config.id,
+                reader_name=self.reader_config.name,
                 rfid=rfid_number,
                 timestamp=timestamp)
-            self.rfid_received.emit(rfid_single_event)
+            self.rfid_received.emit(rfid_event)
 
 
 class RfidOwner(SerialOwner):
+    # Outwards, to world:
+    rfid_received = Signal(RfidEvent)
+    # Inwards, to posessions:
     reset_requested = Signal()
 
     def __init__(self, rfid_config, parent=None):
         # Do not keep a copy of rfid_config; it will expire.
-        self.reader_id = rfid_config.id
-        self.name = rfid_config.name
-        balance_id = None
-        if rfid_config.balance:
-            balance_id = rfid_config.balance.id
         super().__init__(
             serial_args=rfid_config.get_serial_args(),
             parent=parent,
@@ -219,10 +221,14 @@ class RfidOwner(SerialOwner):
             tx_eol=NO_BYTES,
             controller_class=RfidController,
             controller_kwargs=dict(
-                reader_id=rfid_config.id,
-                balance_id=balance_id,
+                reader_config=rfid_config.get_attrdict(),
+                balance_config=(rfid_config.balance.get_attrdict()
+                                if rfid_config.balance else None),
             ))
+        self.reader_id = rfid_config.id  # used by main GUI
+        self.name = rfid_config.name  # used by main GUI
         self.reset_requested.connect(self.controller.reset)
+        self.controller.rfid_received.connect(self.rfid_received)
 
     def reset(self):
         self.reset_requested.emit()

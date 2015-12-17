@@ -36,7 +36,11 @@ from PySide.QtGui import (
 )
 
 from weigh.constants import GUI_MASS_FORMAT, GUI_TIME_FORMAT
-from weigh.db import ensure_migration_is_latest, session_thread_scope
+from weigh.db import (
+    database_is_sqlite,
+    ensure_migration_is_latest,
+    session_thread_scope,
+)
 from weigh.debug_qt import enableSignalDebuggingSimply
 from weigh.balance import BalanceOwner
 from weigh.gui import (
@@ -46,6 +50,7 @@ from weigh.gui import (
     StyledQGroupBox,
 )
 from weigh.models import MasterConfig, BalanceConfig
+from weigh.qt import exit_on_exception
 from weigh.rfid import RfidOwner
 from weigh.task import WeightWhiskerTask
 from weigh.whisker_qt import WhiskerOwner
@@ -92,7 +97,11 @@ class BaseWindow(QMainWindow):
         config_layout = QHBoxLayout()
         self.configure_button = QPushButton('&Configure')
         self.configure_button.clicked.connect(self.configure)
+        self.calibrate_balances_button = QPushButton(
+            '&Tare/calibrate balances')
+        self.calibrate_balances_button.clicked.connect(self.calibrate_balances)
         config_layout.addWidget(self.configure_button)
+        config_layout.addWidget(self.calibrate_balances_button)
         config_layout.addStretch(1)
         config_group.setLayout(config_layout)
 
@@ -107,22 +116,20 @@ class BaseWindow(QMainWindow):
         run_layout.addStretch(1)
         run_group.setLayout(run_layout)
 
-        test_group = StyledQGroupBox("Test")
+        test_group = StyledQGroupBox("Testing and information")
         test_layout = QHBoxLayout()
         self.reset_rfids_button = QPushButton('Reset RFIDs')
         self.reset_rfids_button.clicked.connect(self.reset_rfid_devices)
         self.ping_balances_button = QPushButton('Ping &balances')
         self.ping_balances_button.clicked.connect(self.ping_balances)
-        self.calibrate_balances_button = QPushButton(
-            '&Tare/calibrate balances')
-        self.calibrate_balances_button.clicked.connect(self.calibrate_balances)
         self.ping_whisker_button = QPushButton('&Ping Whisker')
         self.ping_whisker_button.clicked.connect(self.ping_whisker)
         report_status_button = QPushButton('&Report status')
         report_status_button.clicked.connect(self.report_status)
+        report_status_button = QPushButton('&About')
+        report_status_button.clicked.connect(self.about)
         test_layout.addWidget(self.reset_rfids_button)
         test_layout.addWidget(self.ping_balances_button)
-        test_layout.addWidget(self.calibrate_balances_button)
         test_layout.addWidget(self.ping_whisker_button)
         test_layout.addWidget(report_status_button)
         test_layout.addStretch(1)
@@ -238,8 +245,6 @@ class BaseWindow(QMainWindow):
             self.whisker_owner.finished.connect(self.something_finished)
             self.whisker_owner.status_sent.connect(self.on_status)
             self.whisker_owner.error_sent.connect(self.on_status)
-            self.whisker_task.identified_mass_received.connect(
-                self.on_identified_mass)
             # It's OK to connect signals before or after moving them to a
             # different thread: http://stackoverflow.com/questions/20752154
             # We don't want time-critical signals going via the GUI thread,
@@ -252,16 +257,15 @@ class BaseWindow(QMainWindow):
             self.rfid_list = []
             self.rfid_id_to_obj = {}
             self.rfid_id_to_idx = {}
-            for i, rfid_config in enumerate(config.rfid_configs):
+            for i, rfid_config in enumerate(config.rfidreader_configs):
                 if not rfid_config.enabled:
                     continue
                 rfid = RfidOwner(rfid_config, parent=self)
                 rfid.status_sent.connect(self.on_status)
                 rfid.error_sent.connect(self.on_status)
                 rfid.finished.connect(self.something_finished)
-                rfid.controller.rfid_received.connect(
-                    self.whisker_task.on_rfid)
-                rfid.controller.rfid_received.connect(self.on_rfid)
+                rfid.rfid_received.connect(self.whisker_task.on_rfid)
+                rfid.rfid_received.connect(self.on_rfid)
                 self.rfid_list.append(rfid)
                 self.rfid_id_to_obj[rfid.reader_id] = rfid
                 self.rfid_id_to_idx[rfid.reader_id] = i
@@ -286,16 +290,14 @@ class BaseWindow(QMainWindow):
                 balance.status_sent.connect(self.on_status)
                 balance.error_sent.connect(self.on_status)
                 balance.finished.connect(self.something_finished)
-                balance.stable_mass_received.connect(self.whisker_task.on_mass)
-                balance.stable_mass_received.connect(self.on_stable_mass)
-                balance.raw_mass_received.connect(self.on_raw_mass)
+                balance.mass_received.connect(self.whisker_task.on_mass)
+                balance.mass_received.connect(self.on_mass)
                 balance.calibrated.connect(self.on_calibrated)
                 self.balance_list.append(balance)
                 self.balance_id_to_obj[balance.balance_id] = balance
                 self.balance_id_to_idx[balance.balance_id] = i
                 rfid = self.rfid_id_to_obj[balance_config.reader_id]
-                rfid.controller.rfid_received.connect(
-                    balance.controller.on_rfid)
+                rfid.rfid_received.connect(balance.on_rfid)
 
         # ---------------------------------------------------------------------
         # Display
@@ -385,6 +387,34 @@ class BaseWindow(QMainWindow):
             self.whisker_owner.report_status()
             # self.whisker_task.report_status()
         self.status("Status report complete.")
+
+    @Slot()
+    def about(self):
+        QMessageBox.about(self, "Starfeeder", """
+<b>Starfeeder</b><br>
+<br>
+Whisker bird monitor.<br>
+By Rudolf Cardinal (rudolf@pobox.com).<br>
+Functions:
+<ul>
+  <li>
+    Talks to
+    <ul>
+      <li>multiple radiofrequency identification (RFID) readers</li>
+      <li>multiple weighing balances</li>
+      <li>one Whisker server (<a
+        href="http://www.whiskercontrol.com/">www.whiskercontrol.com</a>)</li>
+    </ul>
+  </li>
+  <li>Detects the mass of subjects identified by their RFID (having configured
+    RFID readers/balances into pairs)</li>
+  <li>Tells the Whisker server, and its other clients, about RFID and mass
+    events.</li>
+  <li>Stores its data to a database (e.g. SQLite; MySQL).</li>
+</ul>
+External libraries used include Qt (via PySide); SQLAlchemy; Alembic;
+bitstring; PyInstaller.<br>
+""")
 
     # -------------------------------------------------------------------------
     # Calibration
@@ -527,39 +557,41 @@ class BaseWindow(QMainWindow):
 
             row += 1
 
-    def on_rfid(self, rfid_single_event):
-        rfid_index = self.rfid_id_to_idx[rfid_single_event.reader_id]
-        self.rfid_labels_rfid[rfid_index].setText(str(rfid_single_event.rfid))
+    @exit_on_exception
+    def on_rfid(self, rfid_event):
+        rfid_index = self.rfid_id_to_idx[rfid_event.reader_id]
+        self.rfid_labels_rfid[rfid_index].setText(str(rfid_event.rfid))
         self.rfid_labels_at[rfid_index].setText(
-            rfid_single_event.timestamp.strftime(GUI_TIME_FORMAT))
+            rfid_event.timestamp.strftime(GUI_TIME_FORMAT))
 
-    def on_raw_mass(self, mass_single_event):
-        rfid_index = self.rfid_id_to_idx[mass_single_event.reader_id]
+    @exit_on_exception
+    def on_mass(self, mass_event):
+        rfid_index = self.rfid_id_to_idx[mass_event.reader_id]
+        # For all mass events:
         self.balance_labels_raw_mass[rfid_index].setText(
-            GUI_MASS_FORMAT % mass_single_event.mass_kg)
+            GUI_MASS_FORMAT % mass_event.mass_kg)
         self.balance_labels_raw_mass_at[rfid_index].setText(
-            mass_single_event.timestamp.strftime(GUI_TIME_FORMAT))
-
-    def on_stable_mass(self, mass_single_event):
-        rfid_index = self.rfid_id_to_idx[mass_single_event.reader_id]
-        self.balance_labels_stable_mass[rfid_index].setText(
-            GUI_MASS_FORMAT % mass_single_event.mass_kg)
-        self.balance_labels_stable_mass_at[rfid_index].setText(
-            mass_single_event.timestamp.strftime(GUI_TIME_FORMAT))
-
-    def on_identified_mass(self, mie_obj):
-        """mie_obj: simple object, not SQLAlchemy ORM object"""
-        rfid_index = self.rfid_id_to_idx[mie_obj.reader_id]
-        self.balance_labels_idmass[rfid_index].setText(GUI_MASS_FORMAT
-                                                       % mie_obj.mass_kg)
-        self.balance_labels_rfid[rfid_index].setText(str(mie_obj.rfid))
-        self.balance_labels_idmass_at[rfid_index].setText(
-            mie_obj.at.strftime(GUI_TIME_FORMAT))
+            mass_event.timestamp.strftime(GUI_TIME_FORMAT))
+        # For stable mass events:
+        if mass_event.stable:
+            self.balance_labels_stable_mass[rfid_index].setText(
+                GUI_MASS_FORMAT % mass_event.mass_kg)
+            self.balance_labels_stable_mass_at[rfid_index].setText(
+                mass_event.timestamp.strftime(GUI_TIME_FORMAT))
+        # For identified mass events:
+        if mass_event.rfid is not None:
+            self.balance_labels_idmass[rfid_index].setText(
+                GUI_MASS_FORMAT % mass_event.mass_kg)
+            self.balance_labels_rfid[rfid_index].setText(str(mass_event.rfid))
+            self.balance_labels_idmass_at[rfid_index].setText(
+                mass_event.timestamp.strftime(GUI_TIME_FORMAT))
 
     def set_button_states(self):
         running = self.anything_running()
+        sqlite = database_is_sqlite()
         self.configure_button.setText(
-            'View configuration' if running else '&Configure')
+            'View configuration' if running and not sqlite else '&Configure')
+        self.configure_button.setEnabled(not running or not sqlite)
         self.start_button.setEnabled(not running)
         self.stop_button.setEnabled(running)
         self.reset_rfids_button.setEnabled(running)

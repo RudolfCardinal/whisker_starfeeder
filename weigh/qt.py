@@ -2,10 +2,13 @@
 # weigh/qt.py
 
 from collections import Counter
+from functools import wraps
 import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+import sys
 import threading
+import traceback
 
 from PySide.QtCore import (
     Signal,
@@ -145,6 +148,7 @@ class TransactionalEditDialogMixin(object):
         # Store variables
         self.obj = obj
         self.session = session
+        self.readonly = readonly
 
         # Add OK/cancel buttons to layout thus far
         if readonly:
@@ -264,6 +268,8 @@ class TransactionalEditDialogMixin(object):
         # begin_session() / commit() / rollback() calls.
         # The context manager provided by begin_nested() will commit, or roll
         # back on an exception.
+        if self.readonly:
+            return self.exec_()  # enforces modal
         try:
             with self.session.begin_nested():
                 result = self.exec_()  # enforces modal
@@ -272,13 +278,16 @@ class TransactionalEditDialogMixin(object):
                 else:
                     raise EditCancelledException()
         except EditCancelledException:
-            logger.debug("Dialog changes will be rolled back.")
+            logger.debug("Dialog changes have been rolled back.")
             return result
             # ... and swallow that exception silently.
         # Other exceptions will be handled as normal.
 
         # NOTE that this releases a savepoint but does not commit() the main
         # session; the caller must still do that.
+
+        # The read-only situation REQUIRES that the session itself is
+        # read-only.
 
 
 # =============================================================================
@@ -467,7 +476,7 @@ class ModalEditListView(QListView):
                 self.insert_at_index(new_object, at_index)
                 return result
         except EditCancelledException:
-            logger.debug("Add operation will be rolled back.")
+            logger.debug("Add operation has been rolled back.")
             return result
 
 
@@ -514,3 +523,28 @@ class RadioGroup(object):
     def add_buttons_to_layout(self, layout):
         for button in self.buttons:
             layout.addWidget(button)
+
+
+# =============================================================================
+# Decorator to stop whole program on exceptions (use for threaded slots)
+# =============================================================================
+# http://stackoverflow.com/questions/18740884
+# http://stackoverflow.com/questions/308999/what-does-functools-wraps-do
+
+def exit_on_exception(func):
+    @wraps(func)
+    def with_exit_on_exception(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except:
+            print("=" * 79)
+            print("Uncaught exception in slot, within thread: {}".format(
+                threading.current_thread().name))
+            print("-" * 79)
+            traceback.print_exc()
+            print("-" * 79)
+            print("args: {}".format(", ".join(repr(a) for a in args)))
+            print("kwargs: {}".format(kwargs))
+            print("=" * 79)
+            sys.exit(1)
+    return with_exit_on_exception

@@ -43,8 +43,7 @@ from PySide.QtNetwork import (
 from weigh.constants import ThreadOwnerState
 from weigh.debug_qt import debug_object, debug_thread
 from weigh.lang import CompiledRegexMemory
-from weigh.qt import StatusMixin
-
+from weigh.qt import exit_on_exception, StatusMixin
 
 DEFAULT_PORT = 3233
 EOL = '\n'
@@ -117,12 +116,14 @@ class WhiskerOwner(QObject, StatusMixin):
     The use of 'main' here just refers to the main socket (as opposed to the
     immediate socket), not the thread that's doing most of the processing.
     """
+    # Outwards, to world:
     connected = Signal()
     finished = Signal()
-    controller_finish_requested = Signal()
-    mainsock_finish_requested = Signal()
     message_received = Signal(str, datetime.datetime, int)
     event_received = Signal(str, datetime.datetime, int)
+    # Inwards, to possessions:
+    controller_finish_requested = Signal()
+    mainsock_finish_requested = Signal()
     ping_requested = Signal()
 
     def __init__(self, task, server, main_port=DEFAULT_PORT, parent=None,
@@ -230,12 +231,12 @@ class WhiskerOwner(QObject, StatusMixin):
         self.controller_finish_requested.emit()
         self.mainsock_finish_requested.emit()
 
-    # slot # @Slot()
+    @exit_on_exception  # @Slot()
     def mainsockthread_finished(self):
         self.debug("stop: main socket thread stopped")
         self.check_everything_finished()
 
-    # slot
+    @exit_on_exception
     def taskthread_finished(self):
         self.debug("stop: task thread stopped")
         self.check_everything_finished()
@@ -250,7 +251,7 @@ class WhiskerOwner(QObject, StatusMixin):
     # Other
     # -------------------------------------------------------------------------
 
-    # slot
+    @exit_on_exception
     def on_connect(self):
         self.status("Fully connected to Whisker server")
         self.is_connected = True
@@ -308,7 +309,7 @@ class WhiskerMainSocketListener(QObject, StatusMixin):
                 self.process_data(data)
         self.finish()
 
-    # slot
+    @exit_on_exception
     def stop(self):
         self.debug("stop")
         self.finish_requested = True
@@ -369,7 +370,7 @@ class WhiskerController(QObject, StatusMixin):
         self.immsocket = None
         self.residual = ''
 
-    # slot
+    @exit_on_exception
     def main_received(self, msg):
         timestamp = datetime.datetime.now()
         gre = CompiledRegexMemory()
@@ -411,7 +412,7 @@ class WhiskerController(QObject, StatusMixin):
             event = gre.group(1)
             self.event_received.emit(event, timestamp, whisker_timestamp)
 
-    # slot
+    @exit_on_exception
     def stop(self):
         self.close_immsocket()
         self.finish()
@@ -475,7 +476,7 @@ class WhiskerController(QObject, StatusMixin):
         if is_socket_connected(self.immsocket):
             self.immsocket.close()
 
-    # slot
+    @exit_on_exception
     def ping(self):
         reply = self.get_response(PING)
         if reply:
@@ -514,11 +515,11 @@ class WhiskerTask(QObject, StatusMixin):
     def any_threads_running(self):
         return False  # override if you spawn tasks
 
-    # slot
+    @exit_on_exception
     def on_connect(self):
         self.warning("on_connect: YOU SHOULD OVERRIDE THIS")
 
-    # slot # @Slot(str, datetime.datetime, int)
+    @exit_on_exception  # @Slot(str, datetime.datetime, int)
     def on_event(self, event, timestamp, whisker_timestamp_ms):
         # You should override this
         msg = "SHOULD BE OVERRIDDEN. EVENT: {}".format(event)

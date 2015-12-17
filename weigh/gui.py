@@ -24,8 +24,9 @@ from PySide.QtGui import (
 import serial
 from serial.tools.list_ports import comports
 
+from weigh.constants import BALANCE_ASF_MINIMUM, BALANCE_ASF_MAXIMUM
 from weigh.lang import natural_keys
-from weigh.models import BalanceConfig, RfidConfig
+from weigh.models import BalanceConfig, RfidReaderConfig
 from weigh.qt import (
     GenericListModel,
     ModalEditListView,
@@ -48,6 +49,8 @@ POSSIBLE_RATES_HZ = [10, 6, 3, 2, 1]
 # ... 100 Hz (a) ends up with a bunch of messages concatenated from the serial
 # device, so timing becomes pointless, (b) is pointless, and (c) leads rapidly
 # to a segmentation fault.
+
+POSSIBLE_ASF_MODES = list(range(BALANCE_ASF_MINIMUM, BALANCE_ASF_MAXIMUM + 1))
 
 ALIGNMENT = Qt.AlignLeft | Qt.AlignTop
 DEVICE_ID_LABEL = "Device ID (set when first saved)"
@@ -104,7 +107,6 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
     """
     def __init__(self, session, config, parent=None, readonly=False):
         super().__init__(parent)  # QDialog
-        self.readonly = readonly
 
         # Title
         self.setWindowTitle("Configure Starfeeder")
@@ -179,12 +181,12 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         main_layout.addWidget(rfid_group)
         main_layout.addWidget(balance_group)
 
-        self.set_rfid_button_states(False, False)
-        self.set_balance_button_states(False, False)
-
         # Shared code
         TransactionalEditDialogMixin.__init__(self, session, config,
                                               main_layout, readonly=readonly)
+
+        self.set_rfid_button_states(False, False)
+        self.set_balance_button_states(False, False)
 
     def object_to_dialog(self, obj):
         self.rfid_effective_time_edit.setText(str(
@@ -193,7 +195,7 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         self.server_edit.setText(obj.server)
         self.port_edit.setText(str(obj.port or ''))
         self.wcm_prefix_edit.setText(obj.wcm_prefix)
-        rfid_lm = KeeperCheckGenericListModel(obj.rfid_configs, self)
+        rfid_lm = KeeperCheckGenericListModel(obj.rfidreader_configs, self)
         self.rfid_lv.setModel(rfid_lm)
         balance_lm = KeeperCheckGenericListModel(obj.balance_configs, self)
         self.balance_lv.setModel(balance_lm)
@@ -223,7 +225,7 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         # Duplicate device ports, or names?
         # ---------------------------------------------------------------------
         name_port_pairs = (
-            [(r.name, r.port) for r in obj.rfid_configs]
+            [(r.name, r.port) for r in obj.rfidreader_configs]
             + [(b.name, b.port) for b in obj.balance_configs]
         )
         names = [x[0] for x in name_port_pairs]
@@ -274,7 +276,7 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
 
     @Slot()
     def add_rfid(self):
-        config = RfidConfig(master_config_id=self.obj.id)
+        config = RfidReaderConfig(master_config_id=self.obj.id)
         self.rfid_lv.add_in_nested_transaction(config)
 
     @Slot()
@@ -586,8 +588,8 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
 
         reader_map = []
         readers = (
-            session.query(RfidConfig)
-            .filter(RfidConfig.enabled == True)  # http://stackoverflow.com/questions/18998010  # noqa
+            session.query(RfidReaderConfig)
+            .filter(RfidReaderConfig.enabled == True)  # http://stackoverflow.com/questions/18998010  # noqa
             .all()
         )
         for reader in readers:
@@ -613,6 +615,10 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         self.reader_combo = QComboBox()
         self.reader_combo.addItems(self.reader_names)
         self.reader_combo.setEditable(False)
+        self.asf_combo = QComboBox()
+        self.asf_combo.addItems(list(str(x) for x in POSSIBLE_ASF_MODES))
+        self.asf_combo.setEditable(False)
+        self.fast_filter_check = QCheckBox()
         self.measurement_rate_hz_combo = QComboBox()
         self.measurement_rate_hz_combo.addItems(
             [str(x) for x in POSSIBLE_RATES_HZ])
@@ -623,8 +629,7 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         self.refload_mass_kg_edit = QLineEdit()
         self.zero_value_label = QLabel()
         self.refload_value_label = QLabel()
-        self.read_continuously_check = QCheckBox(
-            "Read continuously (inefficient)")
+        self.read_continuously_check = QCheckBox()
 
         form1 = QFormLayout()
         form1.addRow(DEVICE_ID_LABEL, self.id_value_label)
@@ -634,6 +639,10 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
 
         meas_group = StyledQGroupBox('Measurement settings')
         form2 = QFormLayout()
+        form2.addRow("Amplifier signal filter (ASF) mode (0 = none; "
+                     "see p37 of manual)", self.asf_combo)
+        form2.addRow("Fast response filter (FMD; see p37 of manual)",
+                     self.fast_filter_check)
         form2.addRow("Measurement rate (Hz)", self.measurement_rate_hz_combo)
         form2.addRow("Number of consecutive readings judged for stability",
                      self.stability_n_edit)
@@ -646,10 +655,11 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         form2.addRow("Zero (tare) calibration point", self.zero_value_label)
         form2.addRow("Reference mass calibration point",
                      self.refload_value_label)
+        form2.addRow("Read continuously (inefficient)",
+                     self.read_continuously_check)
 
         mg_vl = QVBoxLayout()
         mg_vl.addLayout(form2)
-        mg_vl.addWidget(self.read_continuously_check)
         meas_group.setLayout(mg_vl)
 
         main_layout = QVBoxLayout()
@@ -679,6 +689,10 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         if obj.measurement_rate_hz in POSSIBLE_RATES_HZ:
             self.measurement_rate_hz_combo.setCurrentIndex(
                 POSSIBLE_RATES_HZ.index(obj.measurement_rate_hz))
+        if obj.amp_signal_filter_mode in POSSIBLE_ASF_MODES:
+            self.asf_combo.setCurrentIndex(
+                POSSIBLE_ASF_MODES.index(obj.amp_signal_filter_mode))
+        self.fast_filter_check.setChecked(obj.fast_response_filter or False)
         self.stability_n_edit.setText(str(obj.stability_n))
         self.tolerance_kg_edit.setText(str(obj.tolerance_kg))
         self.min_mass_kg_edit.setText(str(obj.min_mass_kg))
@@ -707,6 +721,12 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
             assert obj.measurement_rate_hz in POSSIBLE_RATES_HZ
         except:
             raise ValidationError("Invalid measurement_rate_hz")
+        try:
+            obj.amp_signal_filter_mode = int(self.asf_combo.currentText())
+            assert obj.amp_signal_filter_mode in POSSIBLE_ASF_MODES
+        except:
+            raise ValidationError("Invalid amp_signal_filter_mode")
+        obj.fast_response_filter = self.fast_filter_check.isChecked()
         try:
             obj.stability_n = int(self.stability_n_edit.text())
             assert obj.stability_n > 1
@@ -744,10 +764,10 @@ class CalibrateBalancesWindow(QDialog):
         for i, balance in enumerate(balance_owners):
             grid.addWidget(QLabel("Balance {}:".format(
                 balance.balance_id, balance.name)), i, 0)
-            tare_button = QPushButton("Tare")
+            tare_button = QPushButton("&Tare (zero)")
             tare_button.clicked.connect(balance.tare)
             grid.addWidget(tare_button, i, 1)
-            calibrate_button = QPushButton("Calibrate to {} kg".format(
+            calibrate_button = QPushButton("&Calibrate to {} kg".format(
                 balance.refload_mass_kg))
             calibrate_button.clicked.connect(balance.calibrate)
             grid.addWidget(calibrate_button, i, 2)

@@ -16,12 +16,16 @@ import math
 import re
 
 import bitstring
-from PySide.QtCore import QTimer, Signal
+from PySide.QtCore import Signal
 import serial
 
-from weigh.constants import GUI_MASS_FORMAT
+from weigh.constants import (
+    BALANCE_ASF_MINIMUM,
+    BALANCE_ASF_MAXIMUM,
+    GUI_MASS_FORMAT,
+)
 from weigh.lang import CompiledRegexMemory
-from weigh.models import CalibrationReport, MassSingleEvent
+from weigh.models import CalibrationReport, MassEvent, RfidEvent
 from weigh.serial_controller import (
     # CR,
     CRLF,
@@ -29,6 +33,7 @@ from weigh.serial_controller import (
     SerialController,
     SerialOwner,
 )
+from weigh.qt import exit_on_exception
 
 # Startup sequence
 CMD_NO_OP = ""  # p12: a termination character on its own clears the buffer
@@ -83,80 +88,47 @@ BAUDRATE_REGEX = re.compile(r"^(\d+),(\d)$")  # e.g. 09600,1
 
 
 class BalanceController(SerialController):
-    raw_mass_received = Signal(MassSingleEvent)
-    stable_mass_received = Signal(MassSingleEvent)
+    mass_received = Signal(MassEvent)
     calibrated = Signal(CalibrationReport)
 
-    def __init__(self, balance_id, balance_name, reader_id, serial_args,
-                 stability_n, tolerance_kg, min_mass_kg,
-                 measurement_rate_hz, read_continuously,
-                 zero_value, refload_value, refload_mass_kg,
-                 rfid_effective_time_s,
+    def __init__(self, balance_config, reader_config, rfid_effective_time_s,
                  **kwargs):
-        """
-        stability_n  } When stability_n consecutive readings have a range
-        tolerance_kg } <= tolerance_kg, the mass is considered stable.
-                       The most recent value is then used, on the basis that an
-                       asymptotic approach
-        min_mass_kg: a mass smaller than this is ignored
-        """
         super().__init__(**kwargs)
-        self.balance_id = balance_id
-        self.balance_name = balance_name
-        self.reader_id = reader_id
-        self.serial_args = serial_args
-        self.stability_n = stability_n
-        self.tolerance_kg = tolerance_kg
-        self.min_mass_kg = min_mass_kg
-        self.measurement_rate_hz = measurement_rate_hz
-        self.read_continuously = read_continuously
-        self.zero_value = zero_value
-        self.refload_value = refload_value
-        self.refload_mass_kg = refload_mass_kg
+        self.balance_config = balance_config
+        self.reader_config = reader_config
         self.rfid_effective_time_s = rfid_effective_time_s
 
         # The cycle time should be <1 s so the user can ping/tare with a small
         # latency (we don't take the risk of interrupting an ongoing
         # measurement cycle for that). Roughly.
         # So, for example, at 6 Hz we could have 5 per cycle.
-        self.measurements_per_batch = math.ceil(0.5 * self.measurement_rate_hz)
-        self.reset_timer_1 = QTimer()
-        self.reset_timer_1.timeout.connect(self.reset_2)
-        self.reset_timer_2 = QTimer()
-        self.reset_timer_2.timeout.connect(self.reset_3)
+        self.measurements_per_batch = math.ceil(
+            0.5 * self.balance_config.measurement_rate_hz)
         self.command_queue = []
         self.n_pending_measurements = 0
-        self.when_to_read_until = datetime.datetime.utcnow()
+        self.rfid_event_rfid = None
+        self.rfid_event_expires = datetime.datetime.utcnow()
         self.max_value = 100000  # default (NOV command) is 100,000
         self.recent_measurements_kg = []
         self.pending_calibrate = False
         self.pending_tare = False
 
+    @exit_on_exception
     def on_start(self):
         self.reset()
 
-    def send(self, command, params='', reply_expected=True):
+    def send(self, command, params='', reply_expected=True, delay_ms=0):
         params = str(params)  # just in case we have a number
         if reply_expected:
             self.command_queue.append(command)
         msg = command + params
-        super().send(msg)
+        super().send(msg, delay_ms)
 
     def reset(self):
-        self.info("Balance resetting: phase 1")
+        self.info("Balance resetting")
         self.recent_measurements_kg = []
-        self.send(CMD_NO_OP, reply_expected=False)  # cancel anything ongoing
-        self.send(CMD_STOP_MEASURING, reply_expected=False)
-        self.send(CMD_WARM_RESTART, reply_expected=False)
-        self.debug("Balance resetting: waiting {} ms for reset".format(
-            RESET_PAUSE_MS))
-        self.reset_timer_1.setSingleShot(True)
-        self.reset_timer_1.start(RESET_PAUSE_MS)
-
-    def reset_2(self):
-        self.info("Balance resetting: phase 2")
-        baud = self.serial_args['baudrate']
-        parity = self.serial_args['parity']
+        baud = self.balance_config.baudrate
+        parity = self.balance_config.parity
         if parity == serial.PARITY_NONE:
             parity_code = 0
         elif parity == serial.PARITY_EVEN:
@@ -165,23 +137,31 @@ class BalanceController(SerialController):
             self.error("Invalid parity ({})! Choosing even parity. "
                        "COMMUNICATION MAY BREAK.")
             parity_code = 1
-        self.send(CMD_SET_BAUD_RATE, "{},{}".format(baud, parity_code))
-        self.debug("Balance resetting: waiting {} ms for baud rate "
-                   "change".format(BAUDRATE_PAUSE_MS))
-        self.reset_timer_2.setSingleShot(True)
-        self.reset_timer_2.start(BAUDRATE_PAUSE_MS)
 
-    def reset_3(self):
-        self.info("Balance resetting: phase 3")
-        self.send(CMD_QUERY_BAUD_RATE)
+        self.send(CMD_NO_OP, reply_expected=False)  # cancel anything ongoing
+        self.send(CMD_STOP_MEASURING, reply_expected=False)
+        self.send(CMD_WARM_RESTART, reply_expected=False)
+        # We want a short pause before sending the next command... but we can
+        # line it up safely with this:.
+        self.send(CMD_SET_BAUD_RATE, "{},{}".format(baud, parity_code),
+                  delay_ms=RESET_PAUSE_MS)
+        # Likewise a pause next (organized by the SerialWriter)...
+        self.send(CMD_QUERY_BAUD_RATE, delay_ms=BAUDRATE_PAUSE_MS)
         self.send(CMD_QUERY_IDENTIFICATION)
         self.send(CMD_QUERY_STATUS)
         self.send(CMD_ASCII_RESULT_OUTPUT)
         self.send(CMD_DATA_DELIMITER_COMMA_CR_LF)
         # self.send(CMD_DEACTIVATE_OUTPUT_SCALING)  # Not working
         self.send(CMD_QUERY_OUTPUT_SCALING)
-        self.send(CMD_MEASUREMENT_RATE,
-                  RATE_MAP_HZ_TO_CODE.get(self.measurement_rate_hz))
+        asf = self.balance_config.amp_signal_filter_mode
+        if asf < BALANCE_ASF_MINIMUM or asf > BALANCE_ASF_MAXIMUM:
+            self.warning("Bad ASF mode ignored: {}".format(asf))
+        else:
+            self.send(CMD_SET_FILTER, asf)
+        self.send(CMD_FILTER_TYPE,
+                  1 if self.balance_config.fast_response_filter else 0)
+        self.send(CMD_MEASUREMENT_RATE, RATE_MAP_HZ_TO_CODE.get(
+            self.balance_config.measurement_rate_hz))
         self.start_measuring()
 
     def start_measuring(self):
@@ -191,13 +171,14 @@ class BalanceController(SerialController):
             [CMD_QUERY_MEASURE] * (self.measurements_per_batch - 1))
 
     def read_until(self, when_to_read_until):
-        self.when_to_read_until = when_to_read_until
+        self.rfid_event_expires = self.rfid_event_expires
         now = datetime.datetime.utcnow()
-        if self.read_continuously:
+        if self.balance_config.read_continuously:
             return  # already measuring
-        if self.n_pending_measurements == 0 and now < when_to_read_until:
+        if self.n_pending_measurements == 0 and now < self.rfid_event_expires:
             self.start_measuring()
 
+    @exit_on_exception
     def tare(self):
         # Don't use hardware tare:
             # # Commands (and output) are neatly queued up behind MSV commands.
@@ -208,11 +189,13 @@ class BalanceController(SerialController):
         if self.n_pending_measurements == 0:
             self.start_measuring()
 
+    @exit_on_exception
     def calibrate(self):
         self.pending_calibrate = True
         if self.n_pending_measurements == 0:
             self.start_measuring()
 
+    @exit_on_exception
     def ping(self):
         # Commands (and output) are neatly queued up behind MSV commands.
         # So this will happen at the end of the current MSV cycle.
@@ -227,6 +210,7 @@ class BalanceController(SerialController):
                               if x != CMD_QUERY_MEASURE]
         self.n_pending_measurements = 0
 
+    @exit_on_exception
     def on_stop(self):
         self.stop_measuring()
         self.finished.emit()
@@ -238,97 +222,95 @@ class BalanceController(SerialController):
                     else "Not currently scanning")
 
     def value_to_mass(self, value):
-        if None in [self.refload_value, self.zero_value, self.refload_mass_kg]:
+        r = self.balance_config.refload_value
+        z = self.balance_config.zero_value
+        m = self.balance_config.refload_mass_kg
+        if None in [r, z, m]:
             return None
-        return (
-            self.refload_mass_kg
-            * (value - self.zero_value)
-            / (self.refload_value - self.zero_value)
-        )
+        return m * (value - z) / (r - z)
 
     def process_value(self, value, timestamp):
         mass_kg = self.value_to_mass(value)
         if mass_kg is None:
-            # self.warning("Balance uncalibrated; ignoring value")
+            self.debug("Balance uncalibrated; ignoring value")
             return
         self.debug("BALANCE VALUE: {} => {} kg".format(
             value, GUI_MASS_FORMAT % mass_kg))
-        while len(self.recent_measurements_kg) >= self.stability_n:
+        while (len(self.recent_measurements_kg)
+                >= self.balance_config.stability_n):
             self.recent_measurements_kg.pop(0)
         self.recent_measurements_kg.append(mass_kg)
-        mass_single_event = MassSingleEvent(
-            balance_id=self.balance_id,
-            reader_id=self.reader_id,
+        rfid_valid = timestamp < self.rfid_event_expires
+        mass_event = MassEvent(
+            balance_id=self.balance_config.id,
+            balance_name=self.balance_config.name,
+            reader_id=self.reader_config.id,
+            reader_name=self.reader_config.name,
+            rfid=self.rfid if rfid_valid else None,
             mass_kg=mass_kg,
             timestamp=timestamp,
+            stable=False,
         )
-        self.raw_mass_received.emit(mass_single_event)
 
-        # Do we have a stable mass?
-        if mass_kg < self.min_mass_kg:
-            # Stable but too low (e.g. zero!).
-            return
-        if len(self.recent_measurements_kg) < self.stability_n:
-            # Too few measurements to judge.
-            return
-        min_kg = min(self.recent_measurements_kg)
-        max_kg = max(self.recent_measurements_kg)
-        range_kg = max_kg - min_kg
-        if range_kg > self.tolerance_kg:
-            # Unstable.
-            return
+        # Do we have a stable mass? Lots of preconditions...
+        if mass_kg >= self.balance_config.min_mass_kg:
+            # ... high enough, e.g. not zero
+            if (len(self.recent_measurements_kg)
+                    >= self.balance_config.stability_n):
+                # ... enough measurements to judge
+                min_kg = min(self.recent_measurements_kg)
+                max_kg = max(self.recent_measurements_kg)
+                range_kg = max_kg - min_kg
+                if range_kg <= self.balance_config.tolerance_kg:
+                    # Stable.
+                    mass_event.stable = True
+                    self.debug("Stable mass: {}".format(str(mass_event)))
 
-        # We have a stable mass!
-        self.debug("Stable mass: {}".format(str(mass_single_event)))
-        self.stable_mass_received.emit(mass_single_event)
+        self.mass_received.emit(mass_event)
 
     def tare_with(self, value):
         self.debug("tare_with: {}".format(value))
         self.pending_tare = False
-        if value == self.zero_value:
+        if value == self.balance_config.zero_value:
             return  # No change
-        if self.zero_value is None:
-            self.zero_value = value
+        if self.balance_config.zero_value is None:
+            self.balance_config.zero_value = value
         else:
-            delta = value - self.zero_value
-            self.zero_value += delta
-            if self.refload_value is not None:
-                self.refload_value += delta
-        if self.refload_value == self.zero_value:
-            self.refload_value = None  # stupid, would cause division by zero
-        self.report_calibration()
+            delta = value - self.balance_config.zero_value
+            self.balance_config.zero_value += delta
+            if self.balance_config.refload_value is not None:
+                self.balance_config.refload_value += delta
+        self.finish_calibration()
 
     def calibrate_with(self, value):
         self.debug("calibrate_with: {}".format(value))
         self.pending_calibrate = False
-        if value == self.refload_value:
+        if value == self.balance_config.refload_value:
             return  # no change
-        self.refload_value = value
-        if self.refload_value == self.zero_value:
-            self.refload_value = None  # stupid, would cause division by zero
-        self.report_calibration()
+        self.balance_config.refload_value = value
+        self.finish_calibration()
 
-    def report_calibration(self):
+    def finish_calibration(self):
+        if self.balance_config.refload_value == self.balance_config.zero_value:
+            # would cause division by zero
+            self.balance_config.refload_value = None
         report = CalibrationReport(
-            balance_name=self.balance_name,
-            zero_value=self.zero_value,
-            refload_value=self.refload_value,
-            refload_mass_kg=self.refload_mass_kg,
+            balance_id=self.balance_config.id,
+            balance_name=self.balance_config.name,
+            zero_value=self.balance_config.zero_value,
+            refload_value=self.balance_config.refload_value,
+            refload_mass_kg=self.balance_config.refload_mass_kg,
         )
         self.calibrated.emit(report)
 
-    def on_rfid(self, rfid_single_event):
-        if (rfid_single_event.reader_id != self.reader_id
-                or rfid_single_event.balance_id != self.balance_id):
-            self.warning("Bad on_rfid message received: {}".format(
-                repr(rfid_single_event)))
-            self.warning("self.reader_id={}, self.balance_id={}".format(
-                self.reader_id, self.balance_id))
-            return
-        when_to_read_until = rfid_single_event.timestamp + datetime.timedelta(
+    @exit_on_exception
+    def on_rfid(self, rfid_event):
+        rfid_event_expires = rfid_event.timestamp + datetime.timedelta(
             seconds=self.rfid_effective_time_s)
-        self.read_until(when_to_read_until)
+        self.rfid_event_rfid = rfid_event.rfid
+        self.read_until(rfid_event_expires)
 
+    @exit_on_exception
     def on_receive(self, data, timestamp):
         data = data.decode("ascii")
         gre = CompiledRegexMemory()
@@ -338,7 +320,7 @@ class BalanceController(SerialController):
             cmd = None
         self.debug("Balance receiving at {}: {} (most recent command was: "
                    "{})".format(timestamp, repr(data), cmd))
-        self.debug("len(self.command_queue) %d" % len(self.command_queue))
+        # self.debug("len(self.command_queue) %d" % len(self.command_queue))
 
         if cmd == CMD_QUERY_MEASURE:
             try:
@@ -355,8 +337,8 @@ class BalanceController(SerialController):
             self.debug("n_pending_measurements: {}".format(
                 self.n_pending_measurements))
             if self.n_pending_measurements == 0:
-                if (self.read_continuously
-                        or timestamp < self.when_to_read_until):
+                if (self.balance_config.read_continuously
+                        or timestamp < self.rfid_event_expires):
                     self.debug("Finished measuring; restarting")
                     self.start_measuring()
         elif (cmd in [CMD_QUERY_BAUD_RATE, CMD_SET_BAUD_RATE]
@@ -374,8 +356,10 @@ class BalanceController(SerialController):
         elif data == RESPONSE_NONSPECIFIC_OK and cmd in [
                 CMD_ASCII_RESULT_OUTPUT,
                 CMD_DATA_DELIMITER_COMMA_CR_LF,
+                CMD_FILTER_TYPE,
                 CMD_MEASUREMENT_RATE,
                 CMD_SET_BAUD_RATE,
+                CMD_SET_FILTER,
                 CMD_TARE,
                 ]:
             self.status("Balance acknowledges command {}".format(cmd))
@@ -405,40 +389,27 @@ class BalanceController(SerialController):
 
 
 class BalanceOwner(SerialOwner):
-    raw_mass_received = Signal(MassSingleEvent)
-    stable_mass_received = Signal(MassSingleEvent)
+    # Outwards, to world:
+    mass_received = Signal(MassEvent)
+    calibrated = Signal(CalibrationReport)
+    # Inwards, to posessions:
     ping_requested = Signal()
     tare_requested = Signal()
     calibration_requested = Signal()
-    calibrated = Signal(CalibrationReport)
+    on_rfid = Signal(RfidEvent)
 
     def __init__(self, balance_config, rfid_effective_time_s, parent=None):
-        # Do not keep a copy of rfid_config; it will expire.
-        self.balance_id = balance_config.id
-        self.name = balance_config.name
-        self.reader_id = balance_config.reader_id
-        self.refload_mass_kg = balance_config.refload_mass_kg
-        serial_args = balance_config.get_serial_args()
+        # Do not keep a copy of balance_config; it will expire.
         super().__init__(
-            serial_args=serial_args,
+            serial_args=balance_config.get_serial_args(),
             parent=parent,
             name=balance_config.name,
             rx_eol=CRLF,
             tx_eol=b";",
             controller_class=BalanceController,
             controller_kwargs=dict(
-                balance_id=balance_config.id,
-                balance_name=balance_config.name,
-                reader_id=balance_config.reader_id,
-                serial_args=serial_args,
-                stability_n=balance_config.stability_n,
-                tolerance_kg=balance_config.tolerance_kg,
-                min_mass_kg=balance_config.min_mass_kg,
-                measurement_rate_hz=balance_config.measurement_rate_hz,
-                read_continuously=balance_config.read_continuously,
-                zero_value=balance_config.zero_value,
-                refload_value=balance_config.refload_value,
-                refload_mass_kg=balance_config.refload_mass_kg,
+                balance_config=balance_config.get_attrdict(),
+                reader_config=balance_config.reader.get_attrdict(),
                 rfid_effective_time_s=rfid_effective_time_s,
             ))
         # Balance uses CR+LF terminator when sending to computer [4].
@@ -446,11 +417,14 @@ class BalanceOwner(SerialOwner):
         # [4].
         # Sometimes a semicolon is accepted but LF isn't (p23), so we use a
         # semicolon.
+        self.balance_id = balance_config.id  # used by main GUI
+        self.name = balance_config.name  # used by main GUI
+        self.refload_mass_kg = balance_config.refload_mass_kg  # used by GUI (tare dialog)  # noqa
         self.ping_requested.connect(self.controller.ping)
         self.tare_requested.connect(self.controller.tare)
         self.calibration_requested.connect(self.controller.calibrate)
-        self.controller.raw_mass_received.connect(self.raw_mass_received)
-        self.controller.stable_mass_received.connect(self.stable_mass_received)
+        self.on_rfid.connect(self.controller.on_rfid)
+        self.controller.mass_received.connect(self.mass_received)
         self.controller.calibrated.connect(self.calibrated)
 
     def ping(self):

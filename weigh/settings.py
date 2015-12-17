@@ -20,6 +20,13 @@ Linux:
 DATABASE_ENGINE = {
     # three slashes for a relative path
     'url': os.environ[db_url_env_var],
-    # 'echo': True,
-    'echo': False,
+    'echo': True,
+    # 'echo': False,
+    'connect_args': {
+        # 'timeout': 15,
+    },
 }
+
+# http://docs.sqlalchemy.org/en/latest/core/engines.html
+# http://stackoverflow.com/questions/15065037
+# http://beets.radbox.org/blog/sqlite-nightmare.html

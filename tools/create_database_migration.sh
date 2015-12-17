@@ -29,6 +29,7 @@ echo "    New sequence number: $NEW_SEQ"
 export PYTHONPATH=$PROJECT_BASE
 echo "Generating new revision with Alembic..."
 echo "    [If it fails with \"Can't locate revision identified by...\", you might need to DROP the alembic_version table.]"
+cd "$PROJECT_BASE"
 alembic revision --autogenerate -m $1 --rev-id $NEW_SEQ
 
 VERSION_PY_STEM=weigh/alembic_current_revision.py

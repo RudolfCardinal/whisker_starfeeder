@@ -80,7 +80,7 @@ THIS_SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 PROJECT_BASE=`readlink -m "$THIS_SCRIPT_DIR/.."`
 
 PYTHONBASE=`basename $PYTHON`
-SITE_PACKAGES="$VIRTUALENVDIR/lib/$PYTHONBASE/site-packages"
+# SITE_PACKAGES="$VIRTUALENVDIR/lib/$PYTHONBASE/site-packages"
 
 #==============================================================================
 # Main

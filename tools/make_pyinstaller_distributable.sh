@@ -13,11 +13,8 @@ rm -rf dist/
 rm -f starfeeder.spec
 
 echo "Building new distribution..."
-pyinstaller starfeeder.py \
-    --additional-hooks-dir="$PROJECT_BASE/hooks" \
-    --hidden-import=serial \
-    --clean \
-    --log-level=INFO
+pyinstaller starfeeder.py --additional-hooks-dir="$PROJECT_BASE/hooks" --clean --log-level=DEBUG
 
 echo "The dist/starfeeder/ directory should contain everything you need."
 echo "Run with: dist/starfeeder/starfeeder"
+echo "Look for warnings in: build/starfeeder/warnstarfeeder.txt"

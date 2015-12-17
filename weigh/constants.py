@@ -13,3 +13,7 @@ class ThreadOwnerState(Enum):
     starting = 1
     running = 2
     stopping = 3
+
+
+BALANCE_ASF_MINIMUM = 0  # p37 of balance manual
+BALANCE_ASF_MAXIMUM = 8  # p37 of balance manual

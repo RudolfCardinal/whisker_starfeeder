@@ -120,11 +120,11 @@ class SerialPortConfigMixin(object):
 
 
 # =============================================================================
-# RFID
+# RFID reader
 # =============================================================================
 
-class RfidConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
-    __tablename__ = 'rfid_config'
+class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
+    __tablename__ = 'rfidreader_config'
     id = Column(Integer, primary_key=True)
     master_config_id = Column(Integer, ForeignKey('master_config.id'))
     name = Column(String)
@@ -170,8 +170,9 @@ class RfidConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
 # =============================================================================
 
 class CalibrationReport(object):
-    def __init__(self, balance_name, zero_value, refload_value,
+    def __init__(self, balance_id, balance_name, zero_value, refload_value,
                  refload_mass_kg):
+        self.balance_id = balance_id
         self.balance_name = balance_name
         self.zero_value = zero_value
         self.refload_value = refload_value
@@ -189,7 +190,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     __tablename__ = 'balance_config'
     id = Column(Integer, primary_key=True)
     master_config_id = Column(Integer, ForeignKey('master_config.id'))
-    reader_id = Column(Integer, ForeignKey('rfid_config.id'))
+    reader_id = Column(Integer, ForeignKey('rfidreader_config.id'))
     name = Column(String)
     keep = Column(Boolean)
     enabled = Column(Boolean)
@@ -201,9 +202,11 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     zero_value = Column(Integer)
     refload_value = Column(Integer)
     read_continuously = Column(Boolean)
+    amp_signal_filter_mode = Column(Integer)
+    fast_response_filter = Column(Boolean)
 
     # One-to-one relationship:
-    reader = relationship("RfidConfig",
+    reader = relationship("RfidReaderConfig",
                           backref=backref("balance", uselist=False))
 
     def __init__(self, **kwargs):
@@ -217,6 +220,8 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
         self.min_mass_kg = kwargs.pop('min_mass_kg', 0.050)
         self.refload_mass_kg = kwargs.pop('refload_mass_kg', 0.1)
         self.read_continuously = kwargs.pop('read_continuously', False)
+        self.amp_signal_filter_mode = kwargs.pop('amp_signal_filter_mode', 0)
+        self.fast_response_filter = kwargs.pop('fast_response_filter', False)
         kwargs.setdefault('baudrate', 9600)
         kwargs.setdefault('bytesize', serial.EIGHTBITS)
         kwargs.setdefault('parity', serial.PARITY_EVEN)
@@ -264,7 +269,7 @@ class MasterConfig(SqlAlchemyAttrDictMixin, Base):
     port = Column(Integer)
     wcm_prefix = Column(String)
     rfid_effective_time_s = Column(Float)
-    rfid_configs = relationship("RfidConfig")
+    rfidreader_configs = relationship("RfidReaderConfig")
     balance_configs = relationship("BalanceConfig")
 
     def __init__(self, **kwargs):
@@ -294,7 +299,7 @@ class MasterConfig(SqlAlchemyAttrDictMixin, Base):
 # RFID detected
 # =============================================================================
 
-class RfidSingleEvent(object):
+class RfidEvent(object):
     """
     This is NOT a database object; it's a simple Python object to get passed
     around between threads (we can't use raw Python numbers for this because
@@ -304,11 +309,11 @@ class RfidSingleEvent(object):
     dozens of these get generated in a very short space of time.
     What is of more behavioural interest is the RfidEvent, below.
     """
-    def __init__(self, reader_id, rfid, timestamp, balance_id=None):
+    def __init__(self, reader_id, reader_name, rfid, timestamp):
         self.reader_id = reader_id
+        self.reader_name = reader_name
         self.rfid = rfid
         self.timestamp = timestamp
-        self.balance_id = balance_id  # destination balance, or None
 
     def __repr__(self):
         return simple_repr(self)
@@ -318,14 +323,14 @@ class RfidSingleEvent(object):
 # RFID recording class, glossing over irrelevant duplication
 # =============================================================================
 
-class RfidEvent(SqlAlchemyAttrDictMixin, Base):
+class RfidEventRecord(SqlAlchemyAttrDictMixin, Base):
     """
     See rfid.py for a discussion of the RFID tag format.
     Upshot: it'll fit into a 64-bit integer, so we use BigInteger.
     """
     __tablename__ = 'rfid_event'
     id = Column(Integer, primary_key=True)
-    reader_id = Column(Integer, ForeignKey('rfid_config.id'))
+    reader_id = Column(Integer, ForeignKey('rfidreader_config.id'))
     rfid = Column(BigInteger)
     first_detected_at = Column(DateTime, default=datetime.datetime.utcnow)
     last_detected_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -347,22 +352,9 @@ class RfidEvent(SqlAlchemyAttrDictMixin, Base):
         )
 
     @classmethod
-    def get_ongoing_event_at_reader(cls, session, reader_id, now,
-                                    rfid_effective_time_s):
-        """Used for mass recording. Looks up the RFID, which is unknown."""
-        most_recent_of_interest = (
-            now - datetime.timedelta(seconds=rfid_effective_time_s)
-        )
-        return (
-            session.query(cls).filter(
-                cls.reader_id == reader_id,
-                cls.last_detected_at >= most_recent_of_interest
-            ).first()  # There should be no more than one!
-        )
-
-    @classmethod
     def record_rfid_detection(cls, session, rfid_single_event,
                               rfid_effective_time_s):
+        """Returns an OrderedNamespace object, not an SQLAlchemy ORM object."""
         reader_id = rfid_single_event.reader_id
         event = cls.get_ongoing_event_by_reader_rfid(
             session,
@@ -382,10 +374,10 @@ class RfidEvent(SqlAlchemyAttrDictMixin, Base):
                 n_events=1,
             )
             session.add(event)
-            reader = session.query(RfidConfig).get(reader_id)
+            reader = session.query(RfidReaderConfig).get(reader_id)
             reader.keep = True  # never delete it now
-        session.commit()
-        return event
+        session.commit()  # ASAP to unlock database
+        # return event.get_attrdict()
 
 
 # While a free-floating ID at a particular reader may be of interest,
@@ -396,34 +388,39 @@ class RfidEvent(SqlAlchemyAttrDictMixin, Base):
 # Raw mass from balance; not a database object
 # =============================================================================
 
-class MassSingleEvent(object):
-    def __init__(self, balance_id, reader_id, mass_kg, timestamp):
+class MassEvent(object):
+    def __init__(self, balance_id, balance_name,
+                 reader_id, reader_name,
+                 rfid, mass_kg, timestamp, stable):
         self.balance_id = balance_id
+        self.balance_name = balance_name
         self.reader_id = reader_id
+        self.reader_name = reader_name
+        self.rfid = rfid
         self.mass_kg = mass_kg
         self.timestamp = timestamp
+        self.stable = stable
 
     def __repr__(self):
-        return ordered_repr(
-            self,
-            ['balance_id', 'reader_id', 'mass_kg', 'timestamp'])
+        return simple_repr(self)
 
     def __str__(self):
-        return "Balance {}: {} kg".format(self.balance_id, self.mass_kg)
+        return "Balance {}: {} kg (RFID: {})".format(
+            self.balance_id, self.mass_kg, self.rfid)
 
 
 # =============================================================================
 # Mass detected from a specific RFID-identified individual
 # =============================================================================
 
-class MassIdentifiedEvent(SqlAlchemyAttrDictMixin, Base):
+class MassEventRecord(SqlAlchemyAttrDictMixin, Base):
     __tablename__ = 'mass_event'
 
     id = Column(Integer, primary_key=True)
     # Who?
     rfid = Column(BigInteger)
     # Where?
-    reader_id = Column(Integer, ForeignKey('rfid_config.id'))
+    reader_id = Column(Integer, ForeignKey('rfidreader_config.id'))
     balance_id = Column(Integer, ForeignKey('balance_config.id'))
     # When? (Default precision is microseconds, even on SQLite.)
     at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -432,46 +429,36 @@ class MassIdentifiedEvent(SqlAlchemyAttrDictMixin, Base):
     mass_kg = Column(Float)
 
     @classmethod
-    def record_mass_detection(cls, session, mass_single_event,
-                              rfid_effective_time_s):
+    def record_mass_detection(cls, session, mass_single_event):
         """Returns an OrderedNamespace object, not an SQLAlchemy ORM object."""
         balance_id = mass_single_event.balance_id
-        reader_id = mass_single_event.reader_id
         balance = session.query(BalanceConfig).get(balance_id)
         if balance is None:
             logger.critical("No such balance ID {}".format(balance_id))
             return None
-        rfid_event = RfidEvent.get_ongoing_event_at_reader(
-            session,
-            reader_id,
-            mass_single_event.timestamp,
-            rfid_effective_time_s)
-        if rfid_event is None:
-            # No RFID has been detected on the balance's RFID reader recently.
-            return None
-        mass_identified_event = MassIdentifiedEvent(
-            rfid=rfid_event.rfid,
-            reader_id=reader_id,
-            balance_id=mass_single_event.balance_id,
+        mass_identified_event = MassEventRecord(
+            rfid=mass_single_event.rfid,
+            reader_id=mass_single_event.reader_id,
+            balance_id=balance_id,
             at=mass_single_event.timestamp,
             mass_kg=mass_single_event.mass_kg,
         )
         session.add(mass_identified_event)
         balance.keep = True  # never delete it now
-        session.commit()
-        return mass_identified_event.get_attrdict()
+        session.commit()  # ASAP to unlock database
+        # return mass_identified_event.get_attrdict()
 
 """
 from weigh.models import (
-    MassIdentifiedEvent,
-    RfidConfig,
+    MassEventRecord,
+    RfidReaderConfig,
     BalanceConfig,
     MasterConfig,
 )
 from weigh.db import get_database_session_thread_scope
-session = get_database_session_thread_scope()
-m = session.query(MassIdentifiedEvent).get(1)
-r = session.query(RfidConfig).get(1)
+session = get_database_session_thread_scope()  # NOT PART OF MAIN CODE!
+m = session.query(MassEventRecord).get(1)
+r = session.query(RfidReaderConfig).get(1)
 b1 = session.query(BalanceConfig).get(1)
 b2 = session.query(BalanceConfig).get(2)
 c = session.query(MasterConfig).get(1)

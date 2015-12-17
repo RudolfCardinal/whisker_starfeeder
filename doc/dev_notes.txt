@@ -308,6 +308,9 @@ Signals -> slots
   It is fine to omit the decorator entirely; everything will still work.
   THUS: all instances of "@Slot()" decorator removed.
 
+  The reasons to use the decorator, if it worked properly, are:
+  http://stackoverflow.com/questions/14421897/is-the-pyside-slot-decorator-necessary
+
 Command-line options to Qt
 - http://doc.qt.io/qt-5/qapplication.html#QApplication
 - http://stackoverflow.com/questions/11713006
@@ -354,6 +357,30 @@ Database thread safety
   hierarchy.
 - That also means we need not to store ORM objects outside a session; you get
   sqlalchemy.orm.exc.DetachedInstanceError errors.
+
+- Difficulty with the following:
+    - the "View config" gets read access to the database
+    - at the same time, the WhiskerTask thread is writing periodically
+    - after 5 s (or whatever the SQLite timeout is) of viewing the config,
+      the writer fails with a "database is locked" exception.
+    - So the view-config bit must be holding a SHARED lock that's interfering
+      with the ability of the writer thread to get an EXCLUSIVE lock; see
+      https://www.sqlite.org/lockingv3.html
+    - I thought that the view-config thing would resemble a bunch of short
+      reads, not one long read.
+    - http://docs.sqlalchemy.org/en/latest/dialects/sqlite.html
+    - http://docs.sqlalchemy.org/en/latest/dialects/sqlite.html#pysqlite-serializable
+
+    - We probably need SELECT commands to issue a COMMIT.
+    - However, setting
+        if readonly:
+            engine.execution_options(autocommit=True)
+      didn't do the job; it seems to ignore SELECT;
+        http://stackoverflow.com/questions/7559570/make-sqlalchemy-commit-instead-of-rollback-after-a-select-query
+      ... no, it's too much of a faff;
+        http://stackoverflow.com/questions/13895176/sqlalchemy-and-sqlite-database-is-locked
+
+    - Just disable view-config for SQLite.
 
 Database migrations
 - Using Alembic.
@@ -628,20 +655,27 @@ Concepts around detecting mass from an identified animal
   scanning, it can alter the end time if necessary; if the MSV scan finishes
   before the <datetime> then it can have another run.
 
+
+===============================================================================
+E-mail from and discussion with Melissa Bateson, 2015-12-17
+===============================================================================
+
+- Per-animal minima/maxima: not necessary "on line"; can be done later as part
+  of data analysis/filtering.
+- Auto-taring when bird leeaves, or taring by request from Whisker client --
+  not currently necessary; they'll see how a manual tare option goes.
+- Single mass measurement only required per bird visit.
+    - Thus (RNC): restrict output to a single mass per visit to each balance,
+      namely the first stable mass.
+    - And (RNC): say the balance has "unlocked" when it's been unloaded fully,
+      meaning below a specific (user-specifiable) criterion.
+
 ===============================================================================
 TO DO
 ===============================================================================
 
-*** balance filtering (ASF, FMD)
-*** specific animal minimum/maximum weight: best done in the database later?
-*** sequence goes wrong if tare (or presumably calibrate) during balance startup
-*** Check if view configuration breaks background task by locking database
-*** check database weights work properly
-    ? *** ? implement "weight value lasts..." option for animals that sit there
-    continuously activating RFID + stable weight? (like the RFID recording?)
-    *** probably needs design check with end user
-*** in any case, identified mass events should hold an FK to the RFID record??
-    ... maybe not using the DB relationship (FK) explicitly, in case the
-    threaded INSERTs occur out of sync??
-*** pyserial 3.0b breaks pyinstaller; sort out manually
-*** copyright messages
+*** restrict to a single weight per visit to balance, as above
+
+*** copyright messages in code, and in About box
+
+*** test on Windows
