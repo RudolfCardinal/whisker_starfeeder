@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # weigh/gui.py
 
 import collections
@@ -49,6 +49,9 @@ POSSIBLE_RATES_HZ = [10, 6, 3, 2, 1]
 # ... 100 Hz (a) ends up with a bunch of messages concatenated from the serial
 # device, so timing becomes pointless, (b) is pointless, and (c) leads rapidly
 # to a segmentation fault.
+# Note that 9600 bps at 8E1 = 960 cps.
+# So divide that by the length of the message (including CR+LF) to get the
+# absolute maximum rate. And don't go near that.
 
 POSSIBLE_ASF_MODES = list(range(BALANCE_ASF_MINIMUM, BALANCE_ASF_MAXIMUM + 1))
 
@@ -626,6 +629,7 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         self.stability_n_edit = QLineEdit()
         self.tolerance_kg_edit = QLineEdit()
         self.min_mass_kg_edit = QLineEdit()
+        self.unlock_mass_kg_edit = QLineEdit()
         self.refload_mass_kg_edit = QLineEdit()
         self.zero_value_label = QLabel()
         self.refload_value_label = QLabel()
@@ -650,6 +654,8 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
                      "consecutive readings must not exceed this)",
                      self.tolerance_kg_edit)
         form2.addRow("Minimum mass for detection (kg)", self.min_mass_kg_edit)
+        form2.addRow("Mass below which balance will unlock (kg)",
+                     self.unlock_mass_kg_edit)
         form2.addRow("Reference (calibration) mass (kg)",
                      self.refload_mass_kg_edit)
         form2.addRow("Zero (tare) calibration point", self.zero_value_label)
@@ -696,6 +702,7 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         self.stability_n_edit.setText(str(obj.stability_n))
         self.tolerance_kg_edit.setText(str(obj.tolerance_kg))
         self.min_mass_kg_edit.setText(str(obj.min_mass_kg))
+        self.unlock_mass_kg_edit.setText(str(obj.unlock_mass_kg))
         self.refload_mass_kg_edit.setText(str(obj.refload_mass_kg))
         self.zero_value_label.setText(str(obj.zero_value))
         self.refload_value_label.setText(str(obj.refload_value))
@@ -743,12 +750,20 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         except:
             raise ValidationError("Invalid min_mass_kg")
         try:
+            obj.unlock_mass_kg = float(self.unlock_mass_kg_edit.text())
+            assert obj.unlock_mass_kg > 0
+        except:
+            raise ValidationError("Invalid unlock_mass_kg")
+        try:
             obj.refload_mass_kg = float(self.refload_mass_kg_edit.text())
             assert obj.refload_mass_kg > 0
         except:
             raise ValidationError("Invalid refload_mass_kg")
         obj.read_continuously = self.read_continuously_check.isChecked()
         self.serial_port_group_to_object(obj)
+        if obj.unlock_mass_kg >= obj.min_mass_kg:
+            raise ValidationError(
+                "unlock_mass_kg must be less than min_mass_kg")
 
 
 # =============================================================================

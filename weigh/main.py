@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # weigh/main.py
 
 """
@@ -53,6 +53,7 @@ from weigh.models import MasterConfig, BalanceConfig
 from weigh.qt import exit_on_exception
 from weigh.rfid import RfidOwner
 from weigh.task import WeightWhiskerTask
+from weigh.version import VERSION
 from weigh.whisker_qt import WhiskerOwner
 
 
@@ -491,7 +492,7 @@ bitstring; PyInstaller.<br>
         self.status_grid.addWidget(QLabel("At"), 0, 5, ALIGNMENT)
         self.status_grid.addWidget(QLabel("Stable mass (kg)"), 0, 6, ALIGNMENT)
         self.status_grid.addWidget(QLabel("At"), 0, 7, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("Identified mass (kg)"),
+        self.status_grid.addWidget(QLabel("Locked/ID'd mass (kg)"),
                                    0, 8, ALIGNMENT)
         self.status_grid.addWidget(QLabel("RFID"), 0, 9, ALIGNMENT)
         self.status_grid.addWidget(QLabel("At"), 0, 10, ALIGNMENT)
@@ -572,14 +573,14 @@ bitstring; PyInstaller.<br>
             GUI_MASS_FORMAT % mass_event.mass_kg)
         self.balance_labels_raw_mass_at[rfid_index].setText(
             mass_event.timestamp.strftime(GUI_TIME_FORMAT))
-        # For stable mass events:
+        # For locked mass events:
         if mass_event.stable:
             self.balance_labels_stable_mass[rfid_index].setText(
                 GUI_MASS_FORMAT % mass_event.mass_kg)
             self.balance_labels_stable_mass_at[rfid_index].setText(
                 mass_event.timestamp.strftime(GUI_TIME_FORMAT))
-        # For identified mass events:
-        if mass_event.rfid is not None:
+        # For locked, identified mass events:
+        if mass_event.locked:
             self.balance_labels_idmass[rfid_index].setText(
                 GUI_MASS_FORMAT % mass_event.mass_kg)
             self.balance_labels_rfid[rfid_index].setText(str(mass_event.rfid))
@@ -609,8 +610,8 @@ def main():
     # Arguments
     # -------------------------------------------------------------------------
     parser = argparse.ArgumentParser(
-        description="Whisker bird monitor, reading from RFID tag reader and "
-        "weighing balance.")
+        description="Starfeeder v{}. Whisker bird monitor, reading from RFID "
+        "tag readers and weighing balances.".format(VERSION))
     parser.add_argument(
         "--logfile", default=None,
         help="Filename to append log to")
@@ -641,6 +642,7 @@ def main():
     # Info
     # -------------------------------------------------------------------------
     logger.info("Starfeeder: RFID/balance controller for Whisker")
+    logger.info("Version: {}".format(VERSION))
     logger.info("- by Rudolf Cardinal (rudolf@pobox.com)")
     logger.debug("args: {}".format(args))
     logger.debug("unparsed_args: {}".format(unparsed_args))

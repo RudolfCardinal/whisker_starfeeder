@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # weigh/whisker_qt.py
 
 """
@@ -371,8 +371,7 @@ class WhiskerController(QObject, StatusMixin):
         self.residual = ''
 
     @exit_on_exception
-    def main_received(self, msg):
-        timestamp = datetime.datetime.now()
+    def main_received(self, msg, timestamp):
         gre = CompiledRegexMemory()
         # self.debug("main_received: {}".format(msg))
 

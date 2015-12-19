@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # weigh/models.py
 
 import datetime
@@ -198,6 +198,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     stability_n = Column(Integer)
     tolerance_kg = Column(Float)
     min_mass_kg = Column(Float)
+    unlock_mass_kg = Column(Float)  # ***
     refload_mass_kg = Column(Float)
     zero_value = Column(Integer)
     refload_value = Column(Integer)
@@ -218,6 +219,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
         self.stability_n = kwargs.pop('stability_n', 5)
         self.tolerance_kg = kwargs.pop('tolerance_kg', 0.005)
         self.min_mass_kg = kwargs.pop('min_mass_kg', 0.050)
+        self.unlock_mass_kg = kwargs.pop('unlock_mass_kg', 0.010)
         self.refload_mass_kg = kwargs.pop('refload_mass_kg', 0.1)
         self.read_continuously = kwargs.pop('read_continuously', False)
         self.amp_signal_filter_mode = kwargs.pop('amp_signal_filter_mode', 0)
@@ -236,8 +238,9 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
             self,
             ['id', 'master_config_id', 'reader_id', 'name', 'keep',
              'enabled', 'measurement_rate_hz', 'stability_n',
-             'tolerance_kg', 'min_mass_kg', 'refload_mass_kg',
-             'zero_value', 'refload_value', 'read_continuously'
+             'tolerance_kg', 'min_mass_kg', 'unlock_mass_kg',
+             'refload_mass_kg', 'zero_value', 'refload_value',
+             'read_continuously'
              ] + self.fields_component_serial_port())
 
     def __str__(self):
@@ -390,8 +393,8 @@ class RfidEventRecord(SqlAlchemyAttrDictMixin, Base):
 
 class MassEvent(object):
     def __init__(self, balance_id, balance_name,
-                 reader_id, reader_name,
-                 rfid, mass_kg, timestamp, stable):
+                 reader_id, reader_name, rfid,
+                 mass_kg, timestamp, stable, locked):
         self.balance_id = balance_id
         self.balance_name = balance_name
         self.reader_id = reader_id
@@ -400,6 +403,7 @@ class MassEvent(object):
         self.mass_kg = mass_kg
         self.timestamp = timestamp
         self.stable = stable
+        self.locked = locked
 
     def __repr__(self):
         return simple_repr(self)

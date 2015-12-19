@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # weigh/task.py
 
 import logging
@@ -12,6 +12,7 @@ from weigh.models import (
     RfidEventRecord,
 )
 from weigh.qt import exit_on_exception
+from weigh.version import VERSION
 from weigh.whisker_qt import WhiskerTask
 
 
@@ -33,7 +34,7 @@ class WeightWhiskerTask(WhiskerTask):
         # self.debug("DERIVED on_connect")
         # debug_object(self)
         # self.whisker.command("TimerSetEvent 2000 5 bop")
-        pass
+        self.whisker.command("ReportName Starfeeder {}".format(VERSION))
 
     @exit_on_exception
     def on_event(self, event, timestamp, whisker_timestamp_ms):
@@ -75,7 +76,7 @@ class WeightWhiskerTask(WhiskerTask):
         it represents an identified mass event (and store it, if so).
         Broadcast the information to the Whisker client.
         """
-        if not mass_event.stable or mass_event.rfid is None:
+        if not mass_event.locked or mass_event.rfid is None:
             return
         with session_thread_scope() as session:
             MassEventRecord.record_mass_detection(session, mass_event)

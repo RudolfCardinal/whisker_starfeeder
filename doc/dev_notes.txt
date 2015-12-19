@@ -670,12 +670,41 @@ E-mail from and discussion with Melissa Bateson, 2015-12-17
     - And (RNC): say the balance has "unlocked" when it's been unloaded fully,
       meaning below a specific (user-specifiable) criterion.
 
+
+===============================================================================
+Windows installation
+===============================================================================
+
+- Running a virtualenv Python interpreter in Windows
+
+    Once you've activated a virtualenv, "python.exe" is on the PATH.
+    So "python X.py" works, whereas "x.py" doesn't work because it uses
+    the non-virtualenv interpreter.
+
+    There is an additional mechanism to force use of the venv interpreter...
+    but only the specific shebang "#!/usr/bin/env python" is supported
+    ... http://bugs.python.org/issue23465
+    ... not e.g. "#!/usr/bin/env python3"
+    ... https://www.python.org/dev/peps/pep-0486/
+
+    See also
+    https://docs.python.org/3/library/venv.html
+    https://www.python.org/dev/peps/pep-0397/
+
+    SO ALL EXECUTABLE PYTHON FILES SHOULD USE "#!/usr/bin/env python"
+
 ===============================================================================
 TO DO
 ===============================================================================
 
-*** restrict to a single weight per visit to balance, as above
-
 *** copyright messages in code, and in About box
 
 *** test on Windows
+
+*** put PATH/PYTHONPATH into venv activation, then remove any unnecessary .sh files
+-- e.g. update_database_structure.sh? Or make a batch file that works?
+
+*** Windows needs:
+        windows_install_virtualenv.bat -- DONE
+        windows_update_database_structure.bat
+        windows_make_pyinstaller_distributable.bat

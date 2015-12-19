@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # weigh/serial_controller.py
 
 from collections import deque, OrderedDict

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # weigh/balance.py
 
 """
@@ -112,6 +112,7 @@ class BalanceController(SerialController):
         self.recent_measurements_kg = []
         self.pending_calibrate = False
         self.pending_tare = False
+        self.locked = False
 
     @exit_on_exception
     def on_start(self):
@@ -171,7 +172,7 @@ class BalanceController(SerialController):
             [CMD_QUERY_MEASURE] * (self.measurements_per_batch - 1))
 
     def read_until(self, when_to_read_until):
-        self.rfid_event_expires = self.rfid_event_expires
+        self.rfid_event_expires = when_to_read_until
         now = datetime.datetime.utcnow()
         if self.balance_config.read_continuously:
             return  # already measuring
@@ -229,6 +230,19 @@ class BalanceController(SerialController):
             return None
         return m * (value - z) / (r - z)
 
+    def is_stable(self, mass_kg):
+        # Do we have a stable mass?
+        if len(self.recent_measurements_kg) < self.balance_config.stability_n:
+            # ... not enough measurements to judge
+            return False
+        min_kg = min(self.recent_measurements_kg)
+        max_kg = max(self.recent_measurements_kg)
+        range_kg = max_kg - min_kg
+        if range_kg > self.balance_config.tolerance_kg:
+            return False
+        # Stable.
+        return True
+
     def process_value(self, value, timestamp):
         mass_kg = self.value_to_mass(value)
         if mass_kg is None:
@@ -241,31 +255,30 @@ class BalanceController(SerialController):
             self.recent_measurements_kg.pop(0)
         self.recent_measurements_kg.append(mass_kg)
         rfid_valid = timestamp < self.rfid_event_expires
+        rfid = self.rfid_event_rfid if rfid_valid else None
+        identified = rfid is not None
+        stable = self.is_stable(mass_kg)
+        stable_high = stable and mass_kg >= self.balance_config.min_mass_kg
+        stable_low = stable and mass_kg <= self.balance_config.unlock_mass_kg
+        lock_now = stable_high and identified and not self.locked
+        unlock_now = stable_low and self.locked
         mass_event = MassEvent(
             balance_id=self.balance_config.id,
             balance_name=self.balance_config.name,
             reader_id=self.reader_config.id,
             reader_name=self.reader_config.name,
-            rfid=self.rfid if rfid_valid else None,
+            rfid=rfid,
             mass_kg=mass_kg,
             timestamp=timestamp,
-            stable=False,
+            stable=stable,
+            locked=lock_now,
         )
-
-        # Do we have a stable mass? Lots of preconditions...
-        if mass_kg >= self.balance_config.min_mass_kg:
-            # ... high enough, e.g. not zero
-            if (len(self.recent_measurements_kg)
-                    >= self.balance_config.stability_n):
-                # ... enough measurements to judge
-                min_kg = min(self.recent_measurements_kg)
-                max_kg = max(self.recent_measurements_kg)
-                range_kg = max_kg - min_kg
-                if range_kg <= self.balance_config.tolerance_kg:
-                    # Stable.
-                    mass_event.stable = True
-                    self.debug("Stable mass: {}".format(str(mass_event)))
-
+        if lock_now:
+            self.locked = True
+            self.debug("LOCKING at {}".format(mass_kg))
+        elif unlock_now:
+            self.locked = False
+            self.debug("UNLOCKING at {}".format(mass_kg))
         self.mass_received.emit(mass_event)
 
     def tare_with(self, value):
@@ -336,11 +349,12 @@ class BalanceController(SerialController):
             self.n_pending_measurements -= 1
             self.debug("n_pending_measurements: {}".format(
                 self.n_pending_measurements))
-            if self.n_pending_measurements == 0:
-                if (self.balance_config.read_continuously
-                        or timestamp < self.rfid_event_expires):
-                    self.debug("Finished measuring; restarting")
-                    self.start_measuring()
+            if (self.n_pending_measurements == 0 and (
+                    self.balance_config.read_continuously
+                    or self.locked
+                    or timestamp < self.rfid_event_expires)):
+                self.debug("Finished measuring; restarting")
+                self.start_measuring()
         elif (cmd in [CMD_QUERY_BAUD_RATE, CMD_SET_BAUD_RATE]
                 and gre.match(BAUDRATE_REGEX, data)):
             baudrate = int(gre.group(1))

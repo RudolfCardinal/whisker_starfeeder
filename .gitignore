@@ -10,6 +10,3 @@ build/*
 __pycache__/
 *.py[cod]
 
-# Development versions of stuff
-thirdparty/
-

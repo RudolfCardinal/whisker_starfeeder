@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # weigh/debug_qt.py
 
 # Adapted from: http://stackoverflow.com/questions/2045352

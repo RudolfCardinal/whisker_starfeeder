@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
