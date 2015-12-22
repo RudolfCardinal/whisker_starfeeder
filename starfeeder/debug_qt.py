@@ -92,7 +92,7 @@ def simple_emit_debugger(*args):
 
 def enable_signal_debugging_simply():
     enable_signal_debugging(connect_call=simple_connect_debugger,
-                          emit_call=simple_emit_debugger)
+                            emit_call=simple_emit_debugger)
 
 
 def debug_object(obj):

@@ -693,12 +693,25 @@ Windows installation
 
     SO ALL EXECUTABLE PYTHON FILES SHOULD USE "#!/usr/bin/env python"
 
+- When a serial port appears to be in use:
+
+    https://technet.microsoft.com/en-us/sysinternals/processexplorer
+
+    ... use it to Find "Serial"
+    ... turns out in this case it was UPDD using COM1.
+
 ===============================================================================
 Viewing .rst files
 ===============================================================================
 
 $ pip install restview
 $ restview README.rst
+
+===============================================================================
+When Windows git push fails
+===============================================================================
+
+http://stackoverflow.com/questions/5264949/cannot-push-git-to-remote-repository-with-http-https
 
 ===============================================================================
 Other packaging issues
@@ -725,18 +738,62 @@ Other packaging issues
     - step 2: sort out the files.
         - can't use a simple pyinstaller command anymore; need a .spec file
         - OK! Achieved. Needs one hack in db.py.
-        
+
 - However, a final potential breaking problem... If you launch the script
   from the command line on Windows, you can close the console and the program
   stays running. But if you run the PyInstaller binary, it pops up a console
   and closing this console instantly closes the GUI app.
   Using the "--noconsole"/"--windowed" option does nothing.
-  
+
   Since this is dangerous, and I haven't found a workaround, we have to
   abandon PyInstaller for now (it's currently version 3.1.dev0+93d25e5).
+
+- Since PyPI beats "github + tag" for version management, let's just use
+  PyPI.
+
+===============================================================================
+setup.py; uploading to PyPI; etc
+===============================================================================
+
+Installing/running locally for development:
+$ pip install -e .
+# http://python-packaging-user-guide.readthedocs.org/en/latest/distributing/#id72
+
+PyPI:
+- register
+- create ~/.pypirc (q.v.)
+$ python setup.py register -r pypitest  # iterate until it's happy
+$ python setup.py sdist upload -r pypitest
+Test with:
+$ pip install -i https://testpypi.python.org/pypi starfeeder
+
+Adding extra files (noting that for an "sdist", you need things like
+requirements.txt)...
+
+https://docs.python.org/2/distutils/sourcedist.html#specifying-the-files-to-distribute
+
+BUT it doesn't like github links; that needs a dependency_links line;
+http://stackoverflow.com/questions/18026980/python-setuptools-how-can-i-list-a-private-repository-under-install-requires
+... so ditch requirements.txt and stick with setup.py
+
+Additional files: use MANIFEST.in (not the other alternatives like data_files
+or package_data).
+
+WHEN HAPPY:
+python setup.py register -r pypi
+python setup.py sdist upload -r pypi
+
+===============================================================================
+Process management
+===============================================================================
+
+On Linux, it's happy to be run ("starfeeder") or spawned ("starfeeder &),
+but not happy to be run and then disconnected ("starfeeder" -> CTRL-Z -> bg).
 
 ===============================================================================
 TO DO
 ===============================================================================
 
 *** test on Windows
+*** test Whisker bits
+*** status for components inc. whisker connected/not

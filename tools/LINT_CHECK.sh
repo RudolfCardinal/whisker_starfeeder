@@ -11,7 +11,7 @@ find $SEARCHDIR \
     ! -path "*/bugtest/*" \
     ! -path "*/build/*" \
     ! -path "*/experimenting/*" \
-    ! -path "*/migrations/*" \
+    ! -path "*/alembic/versions/*" \
     ! -path "*/thirdparty/*" \
     -exec flake8 {} \;
 

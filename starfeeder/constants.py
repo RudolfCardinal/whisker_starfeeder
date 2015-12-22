@@ -65,8 +65,8 @@ You will also need:
 By Rudolf Cardinal (rudolf@pobox.com).<br>
 Copyright &copy; 2015 Rudolf Cardinal.
 For licensing details see LICENSE.txt.<br>
-External libraries used include Qt (via PySide); SQLAlchemy; Alembic;
-bitstring; PyInstaller.<br>
+External libraries used include Alembic; bitstring; PySerial; Qt (via PySide);
+SQLAlchemy.<br>
 """
 
 BALANCE_ASF_MINIMUM = 0  # p37 of balance manual

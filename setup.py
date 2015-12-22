@@ -11,8 +11,8 @@ Starfeeder setup file
 from setuptools import setup  # , find_packages
 from codecs import open
 from os import path
-import pip
-from pip.req import parse_requirements
+# import pip
+# from pip.req import parse_requirements
 
 from starfeeder.version import VERSION
 
@@ -29,9 +29,12 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 # -----------------------------------------------------------------------------
 # http://stackoverflow.com/questions/14399534
 # https://github.com/juanpabloaj/pip-init/issues/11
-reqfile = path.join(here, 'requirements.txt')
-install_reqs = parse_requirements(reqfile, session=pip.download.PipSession())
-reqs = [str(ir.req) for ir in install_reqs]
+# reqfile = path.join(here, 'requirements.txt')
+# install_reqs = parse_requirements(reqfile, session=pip.download.PipSession())
+# reqs = [str(ir.req) if ir.req else str(ir.link) for ir in install_reqs]
+# ... RNC modification: for github ones, the .req is None but .link works
+# ... no, we have to use fancy stuff for the github ones;
+#     http://stackoverflow.com/questions/18026980
 
 # -----------------------------------------------------------------------------
 # setup args
@@ -63,26 +66,50 @@ setup(
         'Development Status :: 3 - Alpha',
 
         # Indicate who your project is intended for
-        'Intended Audience :: Researchers',
+        'Intended Audience :: Science/Research',
 
         # Pick your license as you wish (should match "license" above)
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: Apache Software License',
+
+        'Natural Language :: English',
+
+        'Operating System :: OS Independent',
 
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.2',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3 :: Only',
+
+        'Topic :: System :: Hardware',
+        'Topic :: System :: Networking',
     ],
 
     keywords='whisker rfid weigh balance starling',
 
     packages=['starfeeder'],
 
-    install_requires=reqs,
+    install_requires=[
+        # ---------------------------------------------------------------------
+        # Standard PyPI packages
+        # ---------------------------------------------------------------------
+        'alembic==0.8.3',  # migration tool for sqlalchemy
+        'bitstring==3.1.3',  # manipulation of binary numbers
+        'PySide==1.2.4',  # Python interface to Qt
+        'SQLAlchemy==1.0.9',  # database ORM
+        # ---------------------------------------------------------------------
+        # Specials: development versions
+        # ---------------------------------------------------------------------
+        'pyserial==3.0b1',
+    ],
+    dependency_links=[
+        'git+https://github.com/pyserial/pyserial@3e02f7052747521a21723a618dccf303065da732#egg=pyserial-3.0b1',  # noqa
+    ],
 
     entry_points={
         'console_scripts': [
-            'starfeeder=starfeeder:main',
+            # Format is 'script=module:function".
+            'starfeeder=starfeeder.main:main',
         ],
     },
 )

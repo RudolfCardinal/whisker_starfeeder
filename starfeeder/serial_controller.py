@@ -276,6 +276,7 @@ class SerialOwner(QObject, StatusMixin):
     # Outwards, to world:
     started = Signal()
     finished = Signal()
+    state_change = Signal(str)
     # Inwards, to possessions:
     reader_start_requested = Signal(serial.Serial)
     writer_start_requested = Signal(serial.Serial)
@@ -397,6 +398,7 @@ class SerialOwner(QObject, StatusMixin):
     def set_state(self, state):
         self.debug("state: {} -> {}".format(self.state.name, state.name))
         self.state = state
+        self.state_change.emit(state.name)
 
     # -------------------------------------------------------------------------
     # Starting
@@ -412,12 +414,14 @@ class SerialOwner(QObject, StatusMixin):
         if self.state != ThreadOwnerState.stopped:
             self.error("Can't start: state is: {}".format(self.state.name))
             return
+        self.set_state(ThreadOwnerState.starting)
         try:
+            self.info("Opening serial port: {}".format(self.serial_args))
             self.serial_port = serial.Serial(**self.serial_args)
         except Exception as e:
             self.error(str(e))
+            self.stop()
             return
-        self.set_state(ThreadOwnerState.starting)
         self.debug("starting writer thread")
         self.writerthread.start()
 
@@ -453,6 +457,8 @@ class SerialOwner(QObject, StatusMixin):
             return
         self.set_state(ThreadOwnerState.stopping)
         self.debug("stop: asking threads to finish")
+        if self.check_everything_finished():
+            return
         self.controller_stop_requested.emit()
 
     @exit_on_exception
@@ -479,9 +485,10 @@ class SerialOwner(QObject, StatusMixin):
         if (self.readerthread.isRunning()
                 or self.writerthread.isRunning()
                 or self.controllerthread.isRunning()):
-            return
+            return False
         self.set_state(ThreadOwnerState.stopped)
         self.finished.emit()
+        return True
 
     # -------------------------------------------------------------------------
     # Info

@@ -196,28 +196,29 @@ def get_database_engine():
 
     return engine
 
+
 # -----------------------------------------------------------------------------
-# Plain functions: not thread-aware
+# Plain functions: not thread-aware; generally AVOID these
 # -----------------------------------------------------------------------------
 
-# def get_database_session_thread_unaware():
-#     engine = get_database_engine()
-#     Session = sessionmaker(bind=engine)
-#     return Session()
-#
-#
-# @contextmanager
-# def session_scope_thread_unaware():
-#     # http://docs.sqlalchemy.org/en/latest/orm/session_basics.html#session-faq-whentocreate  # noqa
-#     session = get_database_session_thread_unaware()
-#     try:
-#         yield session
-#         session.commit()
-#     except:
-#         session.rollback()
-#         raise
-#     finally:
-#         session.close()
+def get_database_session_thread_unaware():
+    engine = get_database_engine()
+    Session = sessionmaker(bind=engine)
+    return Session()
+
+
+@contextmanager
+def session_scope_thread_unaware():
+    # http://docs.sqlalchemy.org/en/latest/orm/session_basics.html#session-faq-whentocreate  # noqa
+    session = get_database_session_thread_unaware()
+    try:
+        yield session
+        session.commit()
+    except:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 # -----------------------------------------------------------------------------
@@ -231,14 +232,6 @@ def noflush_readonly(*args, **kwargs):
     logger.warning("Attempt to flush a readonly database session blocked")
 
 
-# def nocommit_readonly(*args, **kwargs):
-#     logger.warning("Attempt to commit a readonly database session blocked")
-
-
-# def norollback_readonly(*args, **kwargs):
-#     logger.warning("Attempt to rollback a readonly database session blocked")
-
-
 def get_database_session_thread_scope(readonly=False, autoflush=True):
     if readonly:
         autoflush = False
@@ -248,8 +241,6 @@ def get_database_session_thread_scope(readonly=False, autoflush=True):
     session = Session()
     if readonly:
         session.flush = noflush_readonly
-        # session.commit = nocommit_readonly
-        # session.rollback = norollback_readonly
     return session
 
 

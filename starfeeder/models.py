@@ -184,13 +184,11 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     id = Column(Integer, primary_key=True)
     master_config_id = Column(Integer, ForeignKey('master_config.id'))
     name = Column(String)
-    keep = Column(Boolean)
     enabled = Column(Boolean)
 
     def __init__(self, **kwargs):
         self.name = kwargs.pop('name', '')
         self.master_config_id = kwargs.pop('master_config_id')
-        self.keep = kwargs.pop('keep', False)
         self.enabled = kwargs.pop('enabled', True)
         kwargs.setdefault('baudrate', 9600)
         kwargs.setdefault('bytesize', serial.EIGHTBITS)
@@ -204,8 +202,8 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     def __repr__(self):
         return ordered_repr(
             self,
-            ['id', 'master_config_id', 'name', 'keep',
-             'enabled'] + self.fields_component_serial_port())
+            ['id', 'master_config_id', 'name', 'enabled']
+            + self.fields_component_serial_port())
 
     def __str__(self):
         return "{}{}: {}".format(
@@ -248,7 +246,6 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     master_config_id = Column(Integer, ForeignKey('master_config.id'))
     reader_id = Column(Integer, ForeignKey('rfidreader_config.id'))
     name = Column(String)
-    keep = Column(Boolean)
     enabled = Column(Boolean)
     measurement_rate_hz = Column(Integer)
     stability_n = Column(Integer)
@@ -269,7 +266,6 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     def __init__(self, **kwargs):
         self.name = kwargs.pop('name', '')
         self.master_config_id = kwargs.pop('master_config_id')
-        self.keep = kwargs.pop('keep', False)
         self.enabled = kwargs.pop('enabled', True)
         self.measurement_rate_hz = kwargs.pop('measurement_rate_hz', 6)
         self.stability_n = kwargs.pop('stability_n', 5)
@@ -292,7 +288,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     def __repr__(self):
         return ordered_repr(
             self,
-            ['id', 'master_config_id', 'reader_id', 'name', 'keep',
+            ['id', 'master_config_id', 'reader_id', 'name',
              'enabled', 'measurement_rate_hz', 'stability_n',
              'tolerance_kg', 'min_mass_kg', 'unlock_mass_kg',
              'refload_mass_kg', 'zero_value', 'refload_value',
@@ -433,8 +429,6 @@ class RfidEventRecord(SqlAlchemyAttrDictMixin, Base):
                 n_events=1,
             )
             session.add(event)
-            reader = session.query(RfidReaderConfig).get(reader_id)
-            reader.keep = True  # never delete it now
         session.commit()  # ASAP to unlock database
         # return event.get_attrdict()
 
@@ -492,10 +486,6 @@ class MassEventRecord(SqlAlchemyAttrDictMixin, Base):
     def record_mass_detection(cls, session, mass_single_event):
         """Returns an OrderedNamespace object, not an SQLAlchemy ORM object."""
         balance_id = mass_single_event.balance_id
-        balance = session.query(BalanceConfig).get(balance_id)
-        if balance is None:
-            logger.critical("No such balance ID {}".format(balance_id))
-            return None
         mass_identified_event = MassEventRecord(
             rfid=mass_single_event.rfid,
             reader_id=mass_single_event.reader_id,
@@ -504,7 +494,6 @@ class MassEventRecord(SqlAlchemyAttrDictMixin, Base):
             mass_kg=mass_single_event.mass_kg,
         )
         session.add(mass_identified_event)
-        balance.keep = True  # never delete it now
         session.commit()  # ASAP to unlock database
         # return mass_identified_event.get_attrdict()
 

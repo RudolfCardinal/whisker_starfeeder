@@ -133,6 +133,7 @@ class BalanceController(SerialController):
     @exit_on_exception
     def on_start(self):
         self.reset()
+        self.check_calibrated()
 
     def send(self, command, params='', reply_expected=True, delay_ms=0):
         params = str(params)  # just in case we have a number
@@ -140,6 +141,10 @@ class BalanceController(SerialController):
             self.command_queue.append(command)
         msg = command + params
         super().send(msg, delay_ms)
+
+    def check_calibrated(self):
+        if self.value_to_mass(1) is None:
+            self.warning("Balance uncalibrated; will not read yet")
 
     def reset(self):
         self.info("Balance resetting")
@@ -331,6 +336,7 @@ class BalanceController(SerialController):
             refload_mass_kg=self.balance_config.refload_mass_kg,
         )
         self.calibrated.emit(report)
+        self.check_calibrated()
 
     @exit_on_exception
     def on_rfid(self, rfid_event):

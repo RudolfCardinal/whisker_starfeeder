@@ -185,7 +185,7 @@ class RfidController(SerialController):
     @exit_on_exception
     def on_receive(self, data, timestamp):
         data = data.decode("ascii")
-        self.info("Receiving at {}: {}".format(timestamp, repr(data)))
+        self.debug("Receiving at {}: {}".format(timestamp, repr(data)))
         if data == RESPONSE_COMMAND_INVALID:
             self.debug("RESPONSE_COMMAND_INVALID")
             # We might get this because we send CMD_NO_OP_CANCEL either in the
@@ -210,7 +210,7 @@ class RfidController(SerialController):
             if rfid_number is None:
                 self.error("Received unknown data: {}".format(repr(data)))
                 return
-            self.info("rfid number = {}".format(rfid_number))
+            self.debug("rfid number = {}".format(rfid_number))
             # WATCH OUT. Signal "int" values are 32-bit. So we should
             # emit a Python object instead.
             rfid_event = RfidEvent(

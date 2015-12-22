@@ -61,7 +61,7 @@ class WeightWhiskerTask(WhiskerTask):
 
     def broadcast(self, msg):
         if self.wcm_prefix:
-            msg + "{}{}".format(self.wcm_prefix, msg)
+            msg = "{}{}".format(self.wcm_prefix, msg)
         self.whisker.broadcast(msg)
 
     @exit_on_exception
@@ -81,10 +81,14 @@ class WeightWhiskerTask(WhiskerTask):
                 session, rfid_event, self.rfid_effective_time_s)
         # self.status("RFID received: {}".format(rfid_event))
         if self.whisker.is_connected():
-            self.broadcast("reader {}, RFID {}, timestamp {}".format(
-                rfid_event.rfid,
-                rfid_event.reader_name,
-                rfid_event.timestamp))
+            self.broadcast(
+                "RFID_EVENT: reader {reader}, RFID {rfid}, "
+                "timestamp {timestamp}".format(
+                    rfid=rfid_event.rfid,
+                    reader=rfid_event.reader_name,
+                    timestamp=rfid_event.timestamp,
+                )
+            )
 
     @exit_on_exception
     def on_mass(self, mass_event):
@@ -99,10 +103,12 @@ class WeightWhiskerTask(WhiskerTask):
             MassEventRecord.record_mass_detection(session, mass_event)
         if self.whisker.is_connected():
             self.broadcast(
-                "reader {}, RFID {}, balance {}, mass {} kg, "
-                "at {}".format(
-                    mass_event.reader_name,
-                    mass_event.rfid,
-                    mass_event.balance_name,
-                    mass_event.mass_kg,
-                    mass_event.timestamp))
+                "MASS_EVENT: reader {reader}, RFID {rfid}, balance {balance}, "
+                "mass {mass_kg} kg, timestamp {timestamp}".format(
+                    reader=mass_event.reader_name,
+                    rfid=mass_event.rfid,
+                    balance=mass_event.balance_name,
+                    mass_kg=mass_event.mass_kg,
+                    timestamp=mass_event.timestamp,
+                )
+            )

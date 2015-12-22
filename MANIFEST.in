@@ -1,0 +1,6 @@
+include LICENSE.txt
+
+include starfeeder/alembic.ini
+include starfeeder/alembic/env.py
+include starfeeder/alembic/script.py.mako
+include starfeeder/alembic/versions/*

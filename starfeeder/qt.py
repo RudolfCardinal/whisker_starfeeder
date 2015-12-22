@@ -357,7 +357,7 @@ class GenericListModel(QAbstractListModel):
             return str(self.listdata[index.row()])
         return None
 
-    def item_deletable(self, rowindex):
+    def item_deletable(self, rowindex, session):
         """Override this if you need to prevent rows being deleted."""
         return True
 
@@ -473,8 +473,9 @@ class ModalEditListView(QListView):
         selected_row_indexes = [mi.row() for mi in selected_model_indexes]
         is_selected = bool(selected_row_indexes)
         model = self.model()
-        may_delete = is_selected and all([model.item_deletable(ri)
-                                          for ri in selected_row_indexes])
+        may_delete = is_selected and all(
+            [model.item_deletable(ri, self.session)
+             for ri in selected_row_indexes])
         self.selected_maydelete.emit(is_selected, may_delete)
 
     def add_in_nested_transaction(self, new_object, at_index=None):

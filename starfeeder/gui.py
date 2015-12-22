@@ -46,6 +46,7 @@ from PySide.QtGui import (
 )
 import serial
 from serial.tools.list_ports import comports
+from sqlalchemy.sql import exists
 
 from starfeeder.balance import BalanceOwner
 from starfeeder.constants import (
@@ -60,7 +61,13 @@ from starfeeder.db import (
     session_thread_scope,
 )
 from starfeeder.lang import natural_keys
-from starfeeder.models import BalanceConfig, MasterConfig, RfidReaderConfig
+from starfeeder.models import (
+    BalanceConfig,
+    MassEventRecord,
+    MasterConfig,
+    RfidEventRecord,
+    RfidReaderConfig,
+)
 from starfeeder.qt import (
     GenericListModel,
     ModalEditListView,
@@ -78,10 +85,6 @@ from starfeeder.whisker_qt import WhiskerOwner
 # Constants
 # =============================================================================
 
-AVAILABLE_SERIAL_PORTS = sorted([item[0] for item in comports()],
-                                key=natural_keys)
-# comports() returns a list/tuple of tuples: (port, desc, hwid)
-
 # POSSIBLE_RATES_HZ = [100, 50, 25, 10, 6, 3, 2, 1]
 POSSIBLE_RATES_HZ = [10, 6, 3, 2, 1]
 # ... 100 Hz (a) ends up with a bunch of messages concatenated from the serial
@@ -95,7 +98,6 @@ POSSIBLE_ASF_MODES = list(range(BALANCE_ASF_MINIMUM, BALANCE_ASF_MAXIMUM + 1))
 
 ALIGNMENT = Qt.AlignLeft | Qt.AlignTop
 DEVICE_ID_LABEL = "Device ID (set when first saved)"
-KEEP_LABEL = "Device has associated data and<br>cannot be deleted"
 RENAME_WARNING = (
     "<b>Once created and used for real data, AVOID RENAMING devices;<br>"
     "RFID/mass data will refer to these entries by number (not name).</b>"
@@ -199,7 +201,7 @@ class BaseWindow(QMainWindow):
         test_group.setLayout(test_layout)
 
         self.status_group = StyledQGroupBox("Status")
-        self.status_grid = None
+        self.status_layout = None
         self.lay_out_status()
 
         # For nested layouts: (1) create everything, (2) lay out
@@ -302,12 +304,16 @@ class BaseWindow(QMainWindow):
             # -----------------------------------------------------------------
             # Whisker
             # -----------------------------------------------------------------
-            self.whisker_task = WeightWhiskerTask()
+            self.whisker_task = WeightWhiskerTask(wcm_prefix=config.wcm_prefix)
             self.whisker_owner = WhiskerOwner(
                 self.whisker_task, config.server, parent=self)
             self.whisker_owner.finished.connect(self.something_finished)
             self.whisker_owner.status_sent.connect(self.on_status)
             self.whisker_owner.error_sent.connect(self.on_status)
+            self.whisker_owner.connected.connect(
+                lambda: self.on_whisker_state("Connected"))
+            self.whisker_owner.finished.connect(
+                lambda: self.on_whisker_state("Disconnected"))
             # It's OK to connect signals before or after moving them to a
             # different thread: http://stackoverflow.com/questions/20752154
             # We don't want time-critical signals going via the GUI thread,
@@ -329,6 +335,8 @@ class BaseWindow(QMainWindow):
                 rfid.finished.connect(self.something_finished)
                 rfid.rfid_received.connect(self.whisker_task.on_rfid)
                 rfid.rfid_received.connect(self.on_rfid)
+                rfid.state_change.connect(
+                    lambda state: self.on_rfid_state(i, state))
                 self.rfid_list.append(rfid)
                 self.rfid_id_to_obj[rfid.reader_id] = rfid
                 self.rfid_id_to_idx[rfid.reader_id] = i
@@ -356,16 +364,21 @@ class BaseWindow(QMainWindow):
                 balance.mass_received.connect(self.whisker_task.on_mass)
                 balance.mass_received.connect(self.on_mass)
                 balance.calibrated.connect(self.on_calibrated)
+                balance.state_change.connect(
+                    lambda state: self.on_balance_state(i, state))
                 self.balance_list.append(balance)
                 self.balance_id_to_obj[balance.balance_id] = balance
                 self.balance_id_to_idx[balance.balance_id] = i
                 rfid = self.rfid_id_to_obj[balance_config.reader_id]
                 rfid.rfid_received.connect(balance.on_rfid)
 
-        # ---------------------------------------------------------------------
-        # Display
-        # ---------------------------------------------------------------------
-        self.lay_out_status()
+            # -----------------------------------------------------------------
+            # Display
+            # -----------------------------------------------------------------
+            self.lay_out_status()
+            self.whisker_label_server.setText(config.server)
+            self.whisker_label_port.setText(str(config.port))
+            self.whisker_label_status.setText("Not connected")
 
         # ---------------------------------------------------------------------
         # Start
@@ -516,43 +529,68 @@ class BaseWindow(QMainWindow):
         # Actually, we have to pass ownership of the old layout to a dummy
         # widget owner that's then destroyed;
         # http://stackoverflow.com/questions/10416582/replacing-layout-on-a-qwidget-with-another-layout  # noqa
-        if self.status_grid:
-            QWidget().setLayout(self.status_grid)
-        # Now we should be able to redo it:
-        self.status_grid = QGridLayout()
-        self.status_group.setLayout(self.status_grid)
-        # Header row
-        self.status_grid.addWidget(QLabel("RFID reader"), 0, 0, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("Last RFID seen"), 0, 1, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("At"), 0, 2, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("Balance"), 0, 3, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("Raw mass (kg)"), 0, 4, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("At"), 0, 5, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("Stable mass (kg)"), 0, 6, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("At"), 0, 7, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("Locked/ID'd mass (kg)"),
-                                   0, 8, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("RFID"), 0, 9, ALIGNMENT)
-        self.status_grid.addWidget(QLabel("At"), 0, 10, ALIGNMENT)
 
+        # Wipe the old stuff
+        if self.status_layout:
+            QWidget().setLayout(self.status_layout)
+            # ... will deal with the children
+        # Now we should be able to redo it:
+        rfid_status_grid = QGridLayout()
+        rfid_hlayout = QHBoxLayout()
+        rfid_hlayout.addLayout(rfid_status_grid)
+        rfid_hlayout.addStretch(1)
+        balance_status_grid = QGridLayout()
+        balance_hlayout = QHBoxLayout()
+        balance_hlayout.addLayout(balance_status_grid)
+        balance_hlayout.addStretch(1)
+        whisker_status_grid = QGridLayout()
+        whisker_hlayout = QHBoxLayout()
+        whisker_hlayout.addLayout(whisker_status_grid)
+        whisker_hlayout.addStretch(1)
+        self.status_layout = QVBoxLayout()
+        self.status_layout.addLayout(rfid_hlayout)
+        self.status_layout.addLayout(balance_hlayout)
+        self.status_layout.addLayout(whisker_hlayout)
+        self.status_group.setLayout(self.status_layout)
+
+        rfid_status_grid.addWidget(QLabel("<b>RFID reader</b>"),
+                                   0, 0, ALIGNMENT)
+        rfid_status_grid.addWidget(QLabel("<b>Status</b>"), 0, 1, ALIGNMENT)
+        rfid_status_grid.addWidget(QLabel("<b>Last RFID seen</b>"),
+                                   0, 2, ALIGNMENT)
+        rfid_status_grid.addWidget(QLabel("<b>At</b>"), 0, 3, ALIGNMENT)
+        self.rfid_labels_status = []
         self.rfid_labels_rfid = []
         self.rfid_labels_at = []
-        row = 1
-        for rfid in self.rfid_list:
-            self.status_grid.addWidget(
+        for row, rfid in enumerate(self.rfid_list, start=1):
+            rfid_status_grid.addWidget(
                 QLabel("{}: {}".format(rfid.reader_id, rfid.name)),
                 row, 0, ALIGNMENT)
-
+            label = QLabel("-")
+            rfid_status_grid.addWidget(label, row, 1, ALIGNMENT)
+            self.rfid_labels_status.append(label)
             rfid_label_rfid = QLabel("-")
-            self.status_grid.addWidget(rfid_label_rfid, row, 1, ALIGNMENT)
+            rfid_status_grid.addWidget(rfid_label_rfid, row, 2, ALIGNMENT)
             self.rfid_labels_rfid.append(rfid_label_rfid)
-
             rfid_label_at = QLabel("-")
-            self.status_grid.addWidget(rfid_label_at, row, 2, ALIGNMENT)
+            rfid_status_grid.addWidget(rfid_label_at, row, 3, ALIGNMENT)
             self.rfid_labels_at.append(rfid_label_at)
 
-            row += 1
-
+        balance_status_grid.addWidget(QLabel("<b>Balance</b>"),
+                                      0, 0, ALIGNMENT)
+        balance_status_grid.addWidget(QLabel("<b>Status</b>"), 0, 1, ALIGNMENT)
+        balance_status_grid.addWidget(QLabel("<b>Raw (kg)</b>"),
+                                      0, 2, ALIGNMENT)
+        balance_status_grid.addWidget(QLabel("<b>At</b>"),
+                                      0, 3, ALIGNMENT)
+        balance_status_grid.addWidget(QLabel("<b>Stable (kg)</b>"),
+                                      0, 4, ALIGNMENT)
+        balance_status_grid.addWidget(QLabel("<b>At</b>"), 0, 5, ALIGNMENT)
+        balance_status_grid.addWidget(QLabel("<b>Locked/ID'd (kg)</b>"),
+                                      0, 6, ALIGNMENT)
+        balance_status_grid.addWidget(QLabel("<b>RFID</b>"), 0, 7, ALIGNMENT)
+        balance_status_grid.addWidget(QLabel("<b>At</b>"), 0, 8, ALIGNMENT)
+        self.balance_labels_status = []
         self.balance_labels_raw_mass = []
         self.balance_labels_raw_mass_at = []
         self.balance_labels_stable_mass = []
@@ -560,41 +598,47 @@ class BaseWindow(QMainWindow):
         self.balance_labels_idmass = []
         self.balance_labels_rfid = []
         self.balance_labels_idmass_at = []
-        row = 1
-        for balance in self.balance_list:
-            self.status_grid.addWidget(
+        for row, balance in enumerate(self.balance_list, start=1):
+            balance_status_grid.addWidget(
                 QLabel("{}: {}".format(balance.balance_id, balance.name)),
-                row, 3, ALIGNMENT)
-
+                row, 0, ALIGNMENT)
             label = QLabel("-")
-            self.status_grid.addWidget(label, row, 4, ALIGNMENT)
+            balance_status_grid.addWidget(label, row, 1, ALIGNMENT)
+            self.balance_labels_status.append(label)
+            label = QLabel("-")
+            balance_status_grid.addWidget(label, row, 2, ALIGNMENT)
             self.balance_labels_raw_mass.append(label)
-
             label = QLabel("-")
-            self.status_grid.addWidget(label, row, 5, ALIGNMENT)
+            balance_status_grid.addWidget(label, row, 3, ALIGNMENT)
             self.balance_labels_raw_mass_at.append(label)
-
             label = QLabel("-")
-            self.status_grid.addWidget(label, row, 6, ALIGNMENT)
+            balance_status_grid.addWidget(label, row, 4, ALIGNMENT)
             self.balance_labels_stable_mass.append(label)
-
             label = QLabel("-")
-            self.status_grid.addWidget(label, row, 7, ALIGNMENT)
+            balance_status_grid.addWidget(label, row, 5, ALIGNMENT)
             self.balance_labels_stable_mass_at.append(label)
-
             label = QLabel("-")
-            self.status_grid.addWidget(label, row, 8, ALIGNMENT)
+            balance_status_grid.addWidget(label, row, 6, ALIGNMENT)
             self.balance_labels_idmass.append(label)
-
             label = QLabel("-")
-            self.status_grid.addWidget(label, row, 9, ALIGNMENT)
+            balance_status_grid.addWidget(label, row, 7, ALIGNMENT)
             self.balance_labels_rfid.append(label)
-
             label = QLabel("-")
-            self.status_grid.addWidget(label, row, 10, ALIGNMENT)
+            balance_status_grid.addWidget(label, row, 8, ALIGNMENT)
             self.balance_labels_idmass_at.append(label)
 
-            row += 1
+        whisker_status_grid.addWidget(QLabel("<b>Whisker server</b>"),
+                                      0, 0, ALIGNMENT)
+        whisker_status_grid.addWidget(QLabel("<b>Port</b>"), 0, 1, ALIGNMENT)
+        whisker_status_grid.addWidget(QLabel("<b>Status</b>"), 0, 2, ALIGNMENT)
+        self.whisker_label_server = QLabel("-")
+        whisker_status_grid.addWidget(self.whisker_label_server,
+                                      1, 0, ALIGNMENT)
+        self.whisker_label_port = QLabel("-")
+        whisker_status_grid.addWidget(self.whisker_label_port, 1, 1, ALIGNMENT)
+        self.whisker_label_status = QLabel("-")
+        whisker_status_grid.addWidget(self.whisker_label_status,
+                                      1, 2, ALIGNMENT)
 
     @exit_on_exception
     def on_rfid(self, rfid_event):
@@ -625,6 +669,18 @@ class BaseWindow(QMainWindow):
             self.balance_labels_idmass_at[rfid_index].setText(
                 mass_event.timestamp.strftime(GUI_TIME_FORMAT))
 
+    @exit_on_exception
+    def on_whisker_state(self, state):
+        self.whisker_label_status.setText(state)
+
+    @exit_on_exception
+    def on_rfid_state(self, rfid_index, state):
+        self.rfid_labels_status[rfid_index].setText(state)
+
+    @exit_on_exception
+    def on_balance_state(self, balance_index, state):
+        self.balance_labels_status[balance_index].setText(state)
+
     def set_button_states(self):
         running = self.anything_running()
         sqlite = database_is_sqlite()
@@ -643,9 +699,24 @@ class BaseWindow(QMainWindow):
 # Extra derived classes
 # =============================================================================
 
-class KeeperCheckGenericListModel(GenericListModel):
-    def item_deletable(self, rowindex):
-        return not self.listdata[rowindex].keep
+class RfidKeepCheckListModel(GenericListModel):
+    def item_deletable(self, rowindex, session):
+        return not (
+            session.query(
+                exists().where(RfidEventRecord.reader_id ==
+                               self.listdata[rowindex].id)
+            ).scalar()
+        )
+
+
+class BalanceKeepCheckListModel(GenericListModel):
+    def item_deletable(self, rowindex, session):
+        return not (
+            session.query(
+                exists().where(MassEventRecord.balance_id ==
+                               self.listdata[rowindex].id)
+            ).scalar()
+        )
 
 
 # =============================================================================
@@ -746,9 +817,9 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         self.server_edit.setText(obj.server)
         self.port_edit.setText(str(obj.port or ''))
         self.wcm_prefix_edit.setText(obj.wcm_prefix)
-        rfid_lm = KeeperCheckGenericListModel(obj.rfidreader_configs, self)
+        rfid_lm = RfidKeepCheckListModel(obj.rfidreader_configs, self)
         self.rfid_lv.setModel(rfid_lm)
-        balance_lm = KeeperCheckGenericListModel(obj.balance_configs, self)
+        balance_lm = BalanceKeepCheckListModel(obj.balance_configs, self)
         self.balance_lv.setModel(balance_lm)
 
     def dialog_to_object(self, obj):
@@ -1046,6 +1117,16 @@ class SerialPortMixin(object):
 
 
 # =============================================================================
+# Get available serial ports
+# =============================================================================
+# Do it live, in case they change live.
+
+def get_available_serial_ports():
+    return sorted([item[0] for item in comports()], key=natural_keys)
+    # comports() returns a list/tuple of tuples: (port, desc, hwid)
+
+
+# =============================================================================
 # Edit RFID config
 # =============================================================================
 
@@ -1056,7 +1137,7 @@ class RfidConfigDialog(QDialog, TransactionalEditDialogMixin,
         super().__init__(parent)  # QDialog
         SerialPortMixin.__init__(
             self,
-            port_options=AVAILABLE_SERIAL_PORTS,
+            port_options=get_available_serial_ports(),
             baudrate_options=[9600],
             bytesize_options=[serial.EIGHTBITS],
             parity_options=[serial.PARITY_NONE],
@@ -1070,7 +1151,6 @@ class RfidConfigDialog(QDialog, TransactionalEditDialogMixin,
         self.enabled_group = StyledQGroupBox("Enabled")
         self.enabled_group.setCheckable(True)
         self.id_value_label = QLabel()
-        self.keep_value_label = QLabel()
         self.name_edit = QLineEdit()
         warning1 = QLabel(RENAME_WARNING)
         warning2 = QLabel("<b>NOTE:</b> the intended RFID devices are fixed "
@@ -1079,7 +1159,6 @@ class RfidConfigDialog(QDialog, TransactionalEditDialogMixin,
         # Layout
         form = QFormLayout()
         form.addRow(DEVICE_ID_LABEL, self.id_value_label)
-        form.addRow(KEEP_LABEL, self.keep_value_label)
         form.addRow("RFID name", self.name_edit)
 
         main_layout = QVBoxLayout()
@@ -1099,7 +1178,6 @@ class RfidConfigDialog(QDialog, TransactionalEditDialogMixin,
     def object_to_dialog(self, obj):
         self.enabled_group.setChecked(obj.enabled)
         self.id_value_label.setText(str(obj.id))
-        self.keep_value_label.setText(str(obj.keep))
         self.name_edit.setText(obj.name)
         self.object_to_serial_port_group(obj)
 
@@ -1125,7 +1203,7 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         super().__init__(parent)  # QDialog
         SerialPortMixin.__init__(
             self,
-            port_options=AVAILABLE_SERIAL_PORTS,
+            port_options=get_available_serial_ports(),
             baudrate_options=[1200, 2400, 4800, 9600, 19200, 38400],
             bytesize_options=[serial.EIGHTBITS],
             parity_options=[serial.PARITY_NONE, serial.PARITY_EVEN],
@@ -1161,7 +1239,6 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         self.enabled_group = StyledQGroupBox("Enabled")
         self.enabled_group.setCheckable(True)
         self.id_value_label = QLabel()
-        self.keep_value_label = QLabel()
         self.name_edit = QLineEdit()
         self.reader_combo = QComboBox()
         self.reader_combo.addItems(self.reader_names)
@@ -1185,7 +1262,6 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
 
         form1 = QFormLayout()
         form1.addRow(DEVICE_ID_LABEL, self.id_value_label)
-        form1.addRow(KEEP_LABEL, self.keep_value_label)
         form1.addRow("Balance name", self.name_edit)
         form1.addRow("Paired RFID reader", self.reader_combo)
 
@@ -1233,7 +1309,6 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
     def object_to_dialog(self, obj):
         self.enabled_group.setChecked(obj.enabled or False)
         self.id_value_label.setText(str(obj.id))
-        self.keep_value_label.setText(str(obj.keep))
         self.name_edit.setText(obj.name)
         if obj.reader_id in self.reader_ids:
             self.reader_combo.setCurrentIndex(

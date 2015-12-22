@@ -4,66 +4,63 @@ Whisker Starfeeder
 Manages radiofrequency identification (RFID) readers and weighing balances,
 and talks to a Whisker client (http://www.whiskercontrol.com/).
 
-Running from a distributable
-----------------------------
+Installation: Ubuntu Linux
+--------------------------
 
-Unzip the distributed package and run ``starfeeder``. That's it.
-
-Installation of full package with source
-----------------------------------------
-
-1. **Python/pip.**
-
-You need to have Python 3 and :code:`pip` installed.
-
-2. **Make a virtual environment.**
-
-You will want a Python virtual environment.
-If you have :code:`pyvenv` installed, you can do:
+From a command prompt:
 
 .. code-block::
 
-   pyvenv /path/to/my/new/virtualenv
+    sudo apt-get install python3 python3-pip  # install Python with pip
 
-If you want :code:`virtualenv`, install it using :code:`pip3 install virtualenv`.
-Using :code:`virtualenv`, create your virtual environment with:
+    python3 -m virtualenv /PATH/TO/MY/NEW/VIRTUALENV  # make a virtualenv
 
-.. code-block::
+    source /PATH/TO/MY/NEW/VIRTUALENV/bin/activate  # activate the virtualenv
 
-   virtualenv /path/to/my/new/virtualenv
+    pip install starfeeder  # install from PyPI
 
-3. **Activate your virtual environment**
 
-On Linux:
+Installation: Windows
+---------------------
 
-.. code-block::
+You need to have Python 3 installed (which will come with :code:`pip`,
+:code:`pyvenv`, and :code:`virtualenv`).
+Obtain it from https://www.python.org/ and install it. We'll suppose you've
+installed Python at :code:`C:\Python34`.
 
-    source /path/to/my/new/virtualenv/bin/activate
-
-On Windows:
-
-.. code-block::
-
-    C:\\path\\to\\my\\new\\virtualenv\\Scripts\\activate.bat
-
-4. **Install Starfeeder**
+Then fire up a Command Prompt and do:
 
 .. code-block::
 
-   pip install starfeeder  # *** NEED TO ADD GIT REPOSITORY NAME UNTIL ON PYPI
+    C:\Python34\Scripts\virtualenv.exe C:\PATH\TO\MY\NEW\VIRTUALENV
+
+    C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\activate.bat
+
+    pip install starfeeder
 
 
-Creating a distributable
-------------------------
+Run
+---
 
-From within the activated virtualenv:
+Run the `starfeeder` program from within your virtual environment. It will be
+at:
+
+*Linux*
 
 .. code-block::
 
-    tools/make_pyinstaller_distributable.sh
+    /PATH/TO/MY/NEW/VIRTUALENV/bin/starfeeder
 
-The folder ``dist/starfeeder`` should now contain everything you need, including
-the ``starfeeder`` executable. You'll need to build separately for Linux and
-Windows.
+*Windows*
+
+.. code-block::
+
+    C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\starfeeder.bat  # *** check
 
 
+You can't yet run from a binary distribution
+--------------------------------------------
+
+A single-file installation based on PyInstaller isn't working at the moment;
+it pops up a console window (despite options asking it not to) and if this is
+closed, the GUI program terminates instantly, which is dangerous.
