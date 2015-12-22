@@ -69,7 +69,9 @@ fi
 #------------------------------------------------------------------------------
 # Select Python executable:
 PYTHON=$(which python3.4)
-# Select current version of virtualenv:
+# And pip executable
+PIP=$(which pip3)
+# Select minimum version of virtualenv:
 VENV_VERSION=13.1.2
 
 #------------------------------------------------------------------------------
@@ -98,39 +100,19 @@ done <"$PROJECT_BASE/requirements-ubuntu.txt"
 reassure "OK"
 
 bold "==============================================================================="
-bold "2. Downloading and installing virtualenv into a temporary space"
+bold "2. Ensuring virtualenv is installed for system Python ($PYTHON)"
 bold "==============================================================================="
-VENV_URL_BASE=https://pypi.python.org/packages/source/v/virtualenv
-TEMPDIR=`mktemp -d`
-pushd $TEMPDIR
-curl -O $VENV_URL_BASE/virtualenv-$VENV_VERSION.tar.gz
-# Extract it
-tar xzf virtualenv-$VENV_VERSION.tar.gz
+$PIP install "virtualenv>=$VENV_VERSION"
 reassure "OK"
 
 bold "==============================================================================="
-bold "3. Using system Python ($PYTHON) and downloaded virtualenv software to make $VIRTUALENVDIR"
+bold "3. Using system Python ($PYTHON) and virtualenv to make $VIRTUALENVDIR"
 bold "==============================================================================="
-"$PYTHON" virtualenv-$VENV_VERSION/virtualenv.py "$VIRTUALENVDIR"
-# Install virtualenv into the environment.
-"$VIRTUALENVDIR/bin/pip" install virtualenv-$VENV_VERSION.tar.gz
-popd
+"$PYTHON" -m virtualenv "$VIRTUALENVDIR"
 reassure "OK"
 
 bold "==============================================================================="
-bold "4. Cleanup"
-bold "==============================================================================="
-rm -rf $TEMPDIR
-reassure "OK"
-
-bold "==============================================================================="
-bold "5. Make virtual environment set PYTHONPATH etc., to point to us"
-bold "==============================================================================="
-# No modifications required
-reassure "OK"
-
-bold "==============================================================================="
-bold "6. Activate our virtual environment, $VIRTUALENVDIR"
+bold "4. Activate our virtual environment, $VIRTUALENVDIR"
 bold "==============================================================================="
 source "$VIRTUALENVDIR/bin/activate"
 # ... now "python", "pip", etc. refer to the virtual environment
@@ -141,7 +123,7 @@ pip --version
 reassure "OK"
 
 bold "==============================================================================="
-bold "7. Install dependencies"
+bold "5. Install dependencies"
 bold "==============================================================================="
 pip install -r $PROJECT_BASE/requirements.txt
 reassure "OK"

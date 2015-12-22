@@ -1,12 +1,28 @@
 #!/usr/bin/env python
-# weigh/rfid.py
+# starfeeder/rfid.py
+
+"""
+    Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+"""
 
 import re
 
 import bitstring
 from PySide.QtCore import QTimer, Signal
 
-from weigh.serial_controller import (
+from starfeeder.serial_controller import (
     # CR,
     CRLF,
     LF,
@@ -14,8 +30,8 @@ from weigh.serial_controller import (
     SerialController,
     SerialOwner,
 )
-from weigh.models import RfidEvent
-from weigh.qt import exit_on_exception
+from starfeeder.models import RfidEvent
+from starfeeder.qt import exit_on_exception
 
 CMD_RESET_1 = "x"  # response: "MULTITAG-125 01" (+/- "S" as a separate line)
 CMD_RESET_2 = "z"  # response: "MULTITAG-125 01"

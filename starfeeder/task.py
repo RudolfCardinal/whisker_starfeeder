@@ -1,19 +1,36 @@
 #!/usr/bin/env python
-# weigh/task.py
+# starfeeder/task.py
+
+"""
+    Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+"""
 
 import logging
 logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
-from weigh.db import session_thread_scope
-# from weigh.debug_qt import debug_object
-from weigh.models import (
+from starfeeder.db import session_thread_scope
+# from starfeeder.debug_qt import debug_object
+from starfeeder.models import (
     MassEventRecord,
     MasterConfig,
     RfidEventRecord,
 )
-from weigh.qt import exit_on_exception
-from weigh.version import VERSION
-from weigh.whisker_qt import WhiskerTask
+from starfeeder.qt import exit_on_exception
+from starfeeder.version import VERSION
+from starfeeder.whisker_qt import WhiskerTask
 
 
 class WeightWhiskerTask(WhiskerTask):

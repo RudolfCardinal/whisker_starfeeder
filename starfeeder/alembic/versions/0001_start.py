@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises: 
-Create Date: 2015-12-16 10:19:23.123533
+Create Date: 2015-12-22 14:14:38.614218
 
 """
 
@@ -64,10 +64,13 @@ def upgrade():
     sa.Column('stability_n', sa.Integer(), nullable=True),
     sa.Column('tolerance_kg', sa.Float(), nullable=True),
     sa.Column('min_mass_kg', sa.Float(), nullable=True),
+    sa.Column('unlock_mass_kg', sa.Float(), nullable=True),
     sa.Column('refload_mass_kg', sa.Float(), nullable=True),
     sa.Column('zero_value', sa.Integer(), nullable=True),
     sa.Column('refload_value', sa.Integer(), nullable=True),
     sa.Column('read_continuously', sa.Boolean(), nullable=True),
+    sa.Column('amp_signal_filter_mode', sa.Integer(), nullable=True),
+    sa.Column('fast_response_filter', sa.Boolean(), nullable=True),
     sa.ForeignKeyConstraint(['master_config_id'], ['master_config.id'], name=op.f('fk_balance_config_master_config_id_master_config')),
     sa.ForeignKeyConstraint(['reader_id'], ['rfidreader_config.id'], name=op.f('fk_balance_config_reader_id_rfidreader_config')),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_balance_config'))

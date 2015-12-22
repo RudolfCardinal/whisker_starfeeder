@@ -9,6 +9,7 @@ find $SEARCHDIR \
     -type f \
     -name "*.py" \
     ! -path "*/bugtest/*" \
+    ! -path "*/build/*" \
     ! -path "*/experimenting/*" \
     ! -path "*/migrations/*" \
     ! -path "*/thirdparty/*" \

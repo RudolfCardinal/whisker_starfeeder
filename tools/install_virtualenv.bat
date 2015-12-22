@@ -33,7 +33,7 @@ echo Finding Python/Pip
 echo ===============================================================================
 set PYTHON=%PYTHONDIR%\python.exe
 set PIP=%PYTHONDIR%\Scripts\pip.exe
-set VENV=%PYTHONDIR%\Tools\Scripts\pyvenv.py
+set PYVENV=%PYTHONDIR%\Tools\Scripts\pyvenv.py
 
 set THIS_SCRIPT_DIR=%~dp0
 rem ... will have trailing slash
@@ -41,13 +41,25 @@ set PROJECT_BASE=%THIS_SCRIPT_DIR%..
 
 echo python: %PYTHON%
 echo pip: %PIP%
-echo pyvenv.py: %VENV%
+echo pyvenv.py: %PYVENV%
 echo PROJECT_BASE: %PROJECT_BASE%
+
+rem (A) pyvenv
+set VENVTOOL=%PYVENV%
+
+rem (B) virtualenv
+rem echo ===============================================================================
+rem echo Ensuring virtualenv is installed
+rem echo ===============================================================================
+rem %PIP% install virtualenv
+rem set VIRTUALENV=%PYTHONDIR%\Scripts\virtualenv.exe
+rem echo virtualenv: %VIRTUALENV%
+rem set VENVTOOL=%VIRTUALENV%
 
 echo ===============================================================================
 echo Creating virtual environment at %VIRTUALENVDIR%
 echo ===============================================================================
-%VENV% %VIRTUALENVDIR%
+%VENVTOOL% %VIRTUALENVDIR%
 
 echo ===============================================================================
 echo Activate our virtual environment, %VIRTUALENVDIR%

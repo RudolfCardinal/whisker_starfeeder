@@ -1,35 +1,49 @@
 #!/usr/bin/env python
+# starfeeder/alembic/env.py
+
+"""
+    Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+"""
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
-from logging.config import fileConfig
+import logging
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+# import os
+# import sys
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
+
+from starfeeder.constants import LOG_FORMAT, LOG_DATEFMT
+logging.basicConfig(format=LOG_FORMAT, datefmt=LOG_DATEFMT,
+                    level=logging.DEBUG)
+
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-fileConfig(config.config_file_name)
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# project_dir = os.path.abspath(os.path.join(current_dir,
+#                                            os.pardir, os.pardir))
+# logger.info("Adding to PYTHONPATH: {}".format(project_dir))
+# sys.path.append(project_dir)
+# logger.debug("sys.path: {}".format(sys.path))
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-
-# RNC
-from weigh.models import Base
+from starfeeder.models import Base
 target_metadata = Base.metadata
 
-# RNC
-from weigh.settings import DATABASE_ENGINE
+from starfeeder.settings import DATABASE_ENGINE
 config.set_main_option('sqlalchemy.url', DATABASE_ENGINE['url'])
-
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
 
 def run_migrations_offline():
@@ -45,13 +59,13 @@ def run_migrations_offline():
 
     """
     url = config.get_main_option("sqlalchemy.url")
+    # RNC
     context.configure(
         url=url,
         target_metadata=target_metadata,
         render_as_batch=True,  # for SQLite mode; http://stackoverflow.com/questions/30378233  # noqa
         literal_binds=True,
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
@@ -69,12 +83,12 @@ def run_migrations_online():
         poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
+        # RNC
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             render_as_batch=True,  # for SQLite mode; http://stackoverflow.com/questions/30378233  # noqa
         )
-
         with context.begin_transaction():
             context.run_migrations()
 

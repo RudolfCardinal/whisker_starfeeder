@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# weigh/balance.py
+# starfeeder/balance.py
 
 """
 Reference is [4].
@@ -11,6 +11,22 @@ We should NOT use the tare function, since the tare zero point is lost through
 a reset. Instead, let's store it in the database.
 """
 
+"""
+    Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+"""
+
 import datetime
 import math
 import re
@@ -19,21 +35,21 @@ import bitstring
 from PySide.QtCore import Signal
 import serial
 
-from weigh.constants import (
+from starfeeder.constants import (
     BALANCE_ASF_MINIMUM,
     BALANCE_ASF_MAXIMUM,
     GUI_MASS_FORMAT,
 )
-from weigh.lang import CompiledRegexMemory
-from weigh.models import CalibrationReport, MassEvent, RfidEvent
-from weigh.serial_controller import (
+from starfeeder.lang import CompiledRegexMemory
+from starfeeder.models import CalibrationReport, MassEvent, RfidEvent
+from starfeeder.serial_controller import (
     # CR,
     CRLF,
     # LF,
     SerialController,
     SerialOwner,
 )
-from weigh.qt import exit_on_exception
+from starfeeder.qt import exit_on_exception
 
 # Startup sequence
 CMD_NO_OP = ""  # p12: a termination character on its own clears the buffer

@@ -3,6 +3,9 @@ dist/*
 build/*
 *.spec
 
+# setup.py / pip stuff
+starfeeder.egg-info/*
+
 # Working data
 *.sqlite3
 

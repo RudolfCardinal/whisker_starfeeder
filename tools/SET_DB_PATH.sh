@@ -16,4 +16,4 @@ fi
 THIS_SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 DBFILE=`readlink -m "$THIS_SCRIPT_DIR/../test_db.sqlite3"`
 
-export BIRD_MONITOR_DATABASE_URL=sqlite:////$DBFILE
+export STARFEEDER_DATABASE_URL=sqlite:////$DBFILE

@@ -1,31 +1,58 @@
 #!/usr/bin/env python
-# weight/db.py
+# starfeeder/db.py
 # Database management functions
+
+"""
+    Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+"""
 
 from contextlib import contextmanager
 import logging
 logger = logging.getLogger(__name__)
-# from os import path
+logger.addHandler(logging.NullHandler())
+import os
+# import subprocess
+import sys
 
+from alembic.config import Config
 from alembic.migration import MigrationContext
+from alembic.runtime.environment import EnvironmentContext
 from alembic.script import ScriptDirectory
 # ... don't comment this out; PyInstaller ignores Alembic otherwise.
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-from weigh.alembic_current_revision import ALEMBIC_CURRENT_REVISION
-from weigh.lang import OrderedNamespace
-from weigh.settings import DATABASE_ENGINE
+# from starfeeder.alembic.current_revision import ALEMBIC_CURRENT_REVISION
+from starfeeder.settings import DATABASE_ENGINE
 
 
 # =============================================================================
 # Find out where Alembic files live
 # =============================================================================
 
-# def get_alembic_env_dir():
-#     return path.join(path.abspath(path.dirname(__file__)),
-#                      "..",
-#                      "migrations")
+if getattr(sys, 'frozen', False):
+    # Running inside a PyInstaller bundle.
+    # __file__ will look like: '.../starfeeder/starfeeder/db.pyc'
+    # Normally
+    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+    CURRENT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, os.pardir))
+else:
+    # Running normally.
+    # __file__ will look like: '.../starfeeder/db.py'
+    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ALEMBIC_CONFIG_FILENAME = os.path.join(CURRENT_DIR, 'alembic.ini')
 
 
 # =============================================================================
@@ -39,17 +66,30 @@ def get_database_url():
 # =============================================================================
 # Alembic revision/migration system
 # =============================================================================
+# http://stackoverflow.com/questions/24622170/using-alembic-api-from-inside-application-code  # noqa
 
-def get_head_revision_from_alembic(alembic_env_dir):
-    script = ScriptDirectory(alembic_env_dir)
+def get_head_revision_from_alembic():
+    """
+    Ask Alembic what its head revision is.
+    """
+    os.chdir(CURRENT_DIR)  # so the directory in the config file works
+    config = Config(ALEMBIC_CONFIG_FILENAME)
+    script = ScriptDirectory.from_config(config)
     return script.get_current_head()
 
 
-def get_head_revision_without_alembic():
-    return ALEMBIC_CURRENT_REVISION
+# def get_head_revision_without_alembic():
+#     """
+#     Uses our hacky Python file (written by a shell script) to track the
+#     revision. SUPERSEDED; we'll use Alembic directly.
+#     """
+#     return ALEMBIC_CURRENT_REVISION
 
 
 def get_current_revision(database_url):
+    """
+    Ask the database what its current revision is.
+    """
     engine = create_engine(database_url)
     conn = engine.connect()
     mig_context = MigrationContext.configure(conn)
@@ -57,29 +97,68 @@ def get_current_revision(database_url):
 
 
 def ensure_migration_is_latest():
+    """
+    Raise an exception if our database is not at the latest revision.
+    """
     # -------------------------------------------------------------------------
     # Where we are
     # -------------------------------------------------------------------------
-    # alembic_env_dir = get_alembic_env_dir()
-    # logger.debug("alembic_env_dir: {}".format(alembic_env_dir))
-    # head_revision = get_head_revision_from_alembic(alembic_env_dir)
-    head_revision = get_head_revision_without_alembic()
+    # head_revision = get_head_revision_without_alembic()
+    head_revision = get_head_revision_from_alembic()
     logger.info("Intended database version: {}".format(head_revision))
     # -------------------------------------------------------------------------
     # Where we want to be
     # -------------------------------------------------------------------------
     database_url = get_database_url()
-    logger.debug("database_url: {}".format(database_url))
     current_revision = get_current_revision(database_url)
     logger.info("Current database version: {}".format(current_revision))
     # -------------------------------------------------------------------------
     # Are we where we want to be?
     # -------------------------------------------------------------------------
     if current_revision != head_revision:
-        raise ValueError(
-            "Database revision should be {} but is {}; run "
-            "update_database_structure.sh to fix".format(head_revision,
-                                                         current_revision))
+        raise ValueError("""
+===============================================================================
+Database revision should be {} but is {}.
+
+- If the database version is too low, run starfeeder with the
+  "--upgrade-database" parameter (because your database is too old).
+
+- If the database version is too high, upgrade starfeeder (because you're
+  trying to use an old starfeeder version with a newer database).
+===============================================================================
+        """.format(head_revision, current_revision))
+
+
+def upgrade_database():
+    """
+    Use Alembic to upgrade our database.
+
+    See http://alembic.readthedocs.org/en/latest/api/runtime.html
+    but also, in particular, site-packages/alembic/command.py
+    """
+
+    os.chdir(CURRENT_DIR)  # so the directory in the config file works
+    config = Config(ALEMBIC_CONFIG_FILENAME)
+    script = ScriptDirectory.from_config(config)
+
+    revision = 'head'  # where we want to get to
+
+    def upgrade(rev, context):
+        return script._upgrade_revs(revision, rev)
+
+    logger.info(
+        "Upgrading database to revision '{}' using Alembic".format(revision))
+
+    with EnvironmentContext(config,
+                            script,
+                            fn=upgrade,
+                            as_sql=False,
+                            starting_rev=None,
+                            destination_rev=revision,
+                            tag=None):
+        script.run_env()
+
+    logger.info("Database upgrade completed")
 
 
 # =============================================================================
@@ -149,15 +228,15 @@ def get_database_engine():
 # http://docs.sqlalchemy.org/en/latest/orm/session_api.html
 
 def noflush_readonly(*args, **kwargs):
-    logger.warning("Attempt to flush() a readonly database session blocked")
+    logger.warning("Attempt to flush a readonly database session blocked")
 
 
 # def nocommit_readonly(*args, **kwargs):
-#     logger.warning("Attempt to commit() a readonly database session blocked")
+#     logger.warning("Attempt to commit a readonly database session blocked")
 
 
 # def norollback_readonly(*args, **kwargs):
-#     logger.warning("Attempt to rollback() a readonly database session blocked")
+#     logger.warning("Attempt to rollback a readonly database session blocked")
 
 
 def get_database_session_thread_scope(readonly=False, autoflush=True):
@@ -187,39 +266,3 @@ def session_thread_scope(readonly=False):
         raise
     finally:
         session.close()
-
-
-# =============================================================================
-# Mixin to:
-# - get plain dictionary-like object (with attributes so we can use x.y rather
-#   than x['y']) from an SQLAlchemy ORM object
-# - make a nice repr() default, maintaining field order
-# =============================================================================
-
-class SqlAlchemyAttrDictMixin(object):
-    # See http://stackoverflow.com/questions/2537471
-    # but more: http://stackoverflow.com/questions/2441796
-    def get_attrdict(self):
-        """
-        Returns what looks like a plain object with the values of the
-        SQLAlchemy ORM object.
-        """
-        columns = self.__table__.columns.keys()
-        values = (getattr(self, x) for x in columns)
-        zipped = zip(columns, values)
-        return OrderedNamespace(zipped)
-
-    def __repr__(self):
-        return "<{classname}({kvp})>".format(
-            classname=type(self).__name__,
-            kvp=", ".join("{}={}".format(k, repr(v))
-                          for k, v in self.get_attrdict().items())
-        )
-
-    @classmethod
-    def from_attrdict(cls, attrdict):
-        """
-        Builds a new instance of the ORM object from values in an attrdict.
-        """
-        dictionary = attrdict.__dict__
-        return cls(**dictionary)

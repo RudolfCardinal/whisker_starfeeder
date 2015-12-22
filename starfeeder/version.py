@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# starfeeder/version.py
 
 """
     Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
@@ -16,6 +17,5 @@
     limitations under the License.
 """
 
-print('hook for pyserial no longer relevant as PyInstaller '
-      '(development version as of 2015-12-16 has fixed this')
-# sys.exit(1)
+VERSION = '0.1.0'
+# Use semantic versioning: http://semver.org/

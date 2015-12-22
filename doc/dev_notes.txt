@@ -694,17 +694,33 @@ Windows installation
     SO ALL EXECUTABLE PYTHON FILES SHOULD USE "#!/usr/bin/env python"
 
 ===============================================================================
+Other packaging issues
+===============================================================================
+
+- Relative imports ("from .module import thing") require that you run the
+  "main" part as a module (e.g. "python -m starfeeder.main"), which requires
+  a launch script (Python/bash/whatever) for the development environment;
+  see run_dev.py.
+
+- However, it is an absolute pain to try to get this to work with Alembic,
+  which launches in a different way. So just use absolute imports.
+
+- For PyInstaller distribution, we'll lose everything but our main entry
+  point (i.e. no supporting scripts). So we should integrate any function
+  like that, e.g. updating database structure.
+
+- Don't bother trying to make a single Python file for creating virtual
+  environments; we'd have to activate them halfway through and that will
+  not go well.
+
+- Is it possible to install Alembic with PyInstaller, and have it work?
+    - step 1: use starfeeder for all the Alembic work - done
+    - step 2: sort out the files.
+        - can't use a simple pyinstaller command anymore; need a .spec file
+        - OK! Achieved. Needs one hack in db.py.
+
+===============================================================================
 TO DO
 ===============================================================================
 
-*** copyright messages in code, and in About box
-
 *** test on Windows
-
-*** put PATH/PYTHONPATH into venv activation, then remove any unnecessary .sh files
--- e.g. update_database_structure.sh? Or make a batch file that works?
-
-*** Windows needs:
-        windows_install_virtualenv.bat -- DONE
-        windows_update_database_structure.bat
-        windows_make_pyinstaller_distributable.bat

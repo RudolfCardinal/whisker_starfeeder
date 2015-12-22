@@ -1,5 +1,21 @@
 #!/usr/bin/env python
-# weigh/models.py
+# starfeeder/models.py
+
+"""
+    Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+"""
 
 import datetime
 import logging
@@ -21,8 +37,12 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship
 
-from weigh.db import SqlAlchemyAttrDictMixin
-from weigh.lang import ordered_repr, simple_repr, trunc_if_integer
+from starfeeder.lang import (
+    OrderedNamespace,
+    ordered_repr,
+    simple_repr,
+    trunc_if_integer,
+)
 
 # =============================================================================
 # Constants for Alembic
@@ -47,6 +67,42 @@ MASTER_META = MetaData(naming_convention=ALEMBIC_NAMING_CONVENTION)
 # Derived classes will share the specified metadata.
 
 Base = declarative_base(metadata=MASTER_META)
+
+
+# =============================================================================
+# Mixin to:
+# - get plain dictionary-like object (with attributes so we can use x.y rather
+#   than x['y']) from an SQLAlchemy ORM object
+# - make a nice repr() default, maintaining field order
+# =============================================================================
+
+class SqlAlchemyAttrDictMixin(object):
+    # See http://stackoverflow.com/questions/2537471
+    # but more: http://stackoverflow.com/questions/2441796
+    def get_attrdict(self):
+        """
+        Returns what looks like a plain object with the values of the
+        SQLAlchemy ORM object.
+        """
+        columns = self.__table__.columns.keys()
+        values = (getattr(self, x) for x in columns)
+        zipped = zip(columns, values)
+        return OrderedNamespace(zipped)
+
+    def __repr__(self):
+        return "<{classname}({kvp})>".format(
+            classname=type(self).__name__,
+            kvp=", ".join("{}={}".format(k, repr(v))
+                          for k, v in self.get_attrdict().items())
+        )
+
+    @classmethod
+    def from_attrdict(cls, attrdict):
+        """
+        Builds a new instance of the ORM object from values in an attrdict.
+        """
+        dictionary = attrdict.__dict__
+        return cls(**dictionary)
 
 
 # =============================================================================
