@@ -6,13 +6,13 @@ set PROJECT_BASE=%THIS_SCRIPT_DIR%..
 
 cd "%PROJECT_BASE%"
 
-echo "Deleting old distribution..."
-rmdir /s build
-rmdir /s dist
+echo Deleting old distribution...
+rmdir /s /q build
+rmdir /s /q dist
 
-echo "Building new distribution..."
+echo Building new distribution...
 echo ==========================================================================
-pyinstaller starfeeder.spec --clean --log-level=INFO
+pyinstaller --clean --noconsole --log-level=INFO starfeeder.spec
 
 echo ==========================================================================
 echo The dist/starfeeder/ directory should contain everything you need.

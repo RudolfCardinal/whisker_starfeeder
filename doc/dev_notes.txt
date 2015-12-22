@@ -694,6 +694,13 @@ Windows installation
     SO ALL EXECUTABLE PYTHON FILES SHOULD USE "#!/usr/bin/env python"
 
 ===============================================================================
+Viewing .rst files
+===============================================================================
+
+$ pip install restview
+$ restview README.rst
+
+===============================================================================
 Other packaging issues
 ===============================================================================
 
@@ -718,6 +725,15 @@ Other packaging issues
     - step 2: sort out the files.
         - can't use a simple pyinstaller command anymore; need a .spec file
         - OK! Achieved. Needs one hack in db.py.
+        
+- However, a final potential breaking problem... If you launch the script
+  from the command line on Windows, you can close the console and the program
+  stays running. But if you run the PyInstaller binary, it pops up a console
+  and closing this console instantly closes the GUI app.
+  Using the "--noconsole"/"--windowed" option does nothing.
+  
+  Since this is dangerous, and I haven't found a workaround, we have to
+  abandon PyInstaller for now (it's currently version 3.1.dev0+93d25e5).
 
 ===============================================================================
 TO DO
