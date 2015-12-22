@@ -1,7 +1,6 @@
 # PyInstaller
 dist/*
 build/*
-*.spec
 
 # setup.py / pip stuff
 starfeeder.egg-info/*
