@@ -221,6 +221,8 @@ class SerialWriter(QObject, StatusMixin):
             if DEBUG_WRITE_TIMING:
                 t1 = datetime.datetime.utcnow()
             self.serial_port.write(outdata)
+            # ... will raise SerialTimeoutException if a write timeout is
+            #     set and exceeded
             self.serial_port.flush()
             if DEBUG_WRITE_TIMING:
                 t2 = datetime.datetime.utcnow()
@@ -316,7 +318,7 @@ class SerialOwner(QObject, StatusMixin):
         self.serial_args = serial_args
         self.serial_args.update(dict(
             timeout=0.01,  # seconds
-            write_timeout=None,  # blocking writes
+            write_timeout=5.0,  # seconds; None for blocking writes
             inter_byte_timeout=None,
         ))
         # timeout:
