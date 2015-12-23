@@ -110,7 +110,6 @@ On Windows:
   </li>
   <li>
     For the balance:
-    <ul>
       <li>Connect to the correct COM port using the settings 9600, 8<b>E</b>1,
         XON/XOFF.</li>
       <li>The balance is particularly frustrating, as it usually doesn't say
@@ -119,11 +118,27 @@ On Windows:
       <li>Type <b>ESR?;</b> to request status. It should say "000".</li>
       <li>Type <b>COF3;</b> to request ASCII output. It should say "0".</li>
       <li>Type <b>MSV?10;</b> to request 10 readings. Data should come.</li>
+    <ul>
     </ul>
   </li>
 </ul>
+On Linux:
+<ul>
+  <li>Lots of ways. But using PySerial (as Starfeeder does), following
+    <b>pip install {pyserial_req}</b>, ...</li>
+  <li>RFID reader:
+    <b>python -m serial.tools.miniterm /dev/ttyUSB0 9600
+    --eol LF --develop --parity N</b></li>
+  <li>BALANCE:
+    <b>python -m serial.tools.miniterm /dev/ttyUSB1 9600
+    --eol LF --develop --parity E</b></li>
+</ul>
 """.format(
-    putty_url="http://www.chiark.greenend.org.uk/~sgtatham/putty/"
+    putty_url="http://www.chiark.greenend.org.uk/~sgtatham/putty/",
+    pyserial_req=(
+        "https://github.com/pyserial/pyserial/tarball/"
+        "3e02f7052747521a21723a618dccf303065da732"
+    ),
 )
 LOG_FORMAT = '%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s:%(message)s'
 LOG_DATEFMT = '%Y-%m-%d %H:%M:%S'

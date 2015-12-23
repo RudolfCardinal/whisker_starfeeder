@@ -49,7 +49,7 @@ Install
 -------
 
 1.  You need to have Python 3 installed (which will come with :code:`pip`,
-    :code:`pyvenv`, and :code:`virtualenv`).
+    :code:`pyvenv`, and sometimes :code:`virtualenv`).
     Obtain it from https://www.python.org/ and install it. We'll suppose you've
     installed Python at :code:`C:\Python34`.
 
@@ -59,7 +59,7 @@ Install
 
     .. code-block::
 
-        C:\Python34\Scripts\virtualenv.exe C:\PATH\TO\MY\NEW\VIRTUALENV
+        C:\Python34\Tools\Scripts\pyvenv.py C:\PATH\TO\MY\NEW\VIRTUALENV
 
         C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\activate
 

@@ -699,6 +699,17 @@ Windows installation
 
     ... use it to Find "Serial"
     ... turns out in this case it was UPDD using COM1.
+    
+- Full build on Windows 10
+
+    Git from https://git-scm.com/download/
+    cmake from https://cmake.org/download/
+    Qt 4.8 from http://download.qt.io/archive/qt/4.8/4.8.6/qt-opensource-windows-x86-vs2010-4.8.6.exe
+        - add c:\Qt\%VERSION%\bin to PATH
+        
+    - still not successful
+
+    ? see also https://zahidhasan.wordpress.com/2014/04/29/how-to-install-qt-4-8-mingw-and-qt-creator-on-windows-8-1/
 
 ===============================================================================
 Viewing .rst files

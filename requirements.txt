@@ -28,5 +28,6 @@ git+https://github.com/pyinstaller/pyinstaller@93d25e563e49f88f5977afd9b6e26cb34
 # http://stackoverflow.com/questions/13685920/install-specific-git-commit-with-pip
 # https://pip.pypa.io/en/latest/reference/pip_install/#git
 # ... specifying a commit hash for a particular version
+# git+https://github.com/pyserial/pyserial@3e02f7052747521a21723a618dccf303065da732  # pyserial==3.0b1
 
-git+https://github.com/pyserial/pyserial@3e02f7052747521a21723a618dccf303065da732  # pyserial==3.0b1
+https://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065da732  # pyserial==3.0b1, without the need for git installed
