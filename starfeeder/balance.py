@@ -219,6 +219,7 @@ class BalanceController(SerialController):
 
     @exit_on_exception
     def ping(self):
+        self.check_calibrated()
         # Commands (and output) are neatly queued up behind MSV commands.
         # So this will happen at the end of the current MSV cycle.
         self.status("Asking balance for identification")
