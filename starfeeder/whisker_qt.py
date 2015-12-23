@@ -57,7 +57,7 @@ from PySide.QtNetwork import (
 )
 
 from starfeeder.constants import ThreadOwnerState
-from starfeeder.debug_qt import debug_object, debug_thread
+# from starfeeder.debug_qt import debug_object, debug_thread
 from starfeeder.lang import CompiledRegexMemory
 from starfeeder.qt import exit_on_exception, StatusMixin
 
@@ -134,6 +134,7 @@ class WhiskerOwner(QObject, StatusMixin):
     """
     # Outwards, to world:
     connected = Signal()
+    disconnected = Signal()
     finished = Signal()
     message_received = Signal(str, datetime.datetime, int)
     event_received = Signal(str, datetime.datetime, int)
@@ -163,13 +164,13 @@ class WhiskerOwner(QObject, StatusMixin):
         self.controller = WhiskerController(server)
         self.controller.moveToThread(self.taskthread)
         self.task = task
-        debug_object(self)
-        debug_thread(self.taskthread)
-        debug_object(self.controller)
-        debug_object(task)
+        # debug_object(self)
+        # debug_thread(self.taskthread)
+        # debug_object(self.controller)
+        # debug_object(task)
         self.task.moveToThread(self.taskthread)
-        debug_object(self.controller)
-        debug_object(task)
+        # debug_object(self.controller)
+        # debug_object(task)
         self.task.set_controller(self.controller)
 
         # Connect object and thread start/stop events
@@ -200,6 +201,10 @@ class WhiskerOwner(QObject, StatusMixin):
         self.controller.message_received.connect(self.message_received)
         self.controller.event_received.connect(self.event_received)
         self.controller.event_received.connect(self.task.on_event)
+
+        # Abort events
+        self.mainsock.disconnected.connect(self.on_disconnect)
+        self.controller.disconnected.connect(self.on_disconnect)
 
         # Other
         self.ping_requested.connect(self.controller.ping)
@@ -237,6 +242,11 @@ class WhiskerOwner(QObject, StatusMixin):
     # -------------------------------------------------------------------------
     # Stopping
     # -------------------------------------------------------------------------
+
+    @exit_on_exception
+    def on_disconnect(self):
+        self.disconnected.emit()
+        self.stop()
 
     def stop(self):
         if self.state == ThreadOwnerState.stopped:
@@ -283,6 +293,7 @@ class WhiskerOwner(QObject, StatusMixin):
 
 class WhiskerMainSocketListener(QObject, StatusMixin):
     finished = Signal()
+    disconnected = Signal()
     line_received = Signal(str, datetime.datetime)
 
     def __init__(self, server, port, parent=None, connect_timeout_ms=5000,
@@ -306,6 +317,7 @@ class WhiskerMainSocketListener(QObject, StatusMixin):
         self.status("Connecting to {}:{} with timeout {} ms".format(
             self.server, self.port, self.connect_timeout_ms))
         self.socket = QTcpSocket(parent=self)
+        self.socket.disconnected.connect(self.disconnected)
         self.socket.connectToHost(self.server, self.port)
         if not self.socket.waitForConnected(self.connect_timeout_ms):
             errmsg = "Socket error {}".format(get_socket_error(self.socket))
@@ -370,6 +382,7 @@ class WhiskerMainSocketListener(QObject, StatusMixin):
 class WhiskerController(QObject, StatusMixin):
     finished = Signal()
     connected = Signal()
+    disconnected = Signal()
     message_received = Signal(str, datetime.datetime, int)
     event_received = Signal(str, datetime.datetime, int)
 
@@ -400,6 +413,7 @@ class WhiskerController(QObject, StatusMixin):
         if gre.search(CODE_REGEX, msg):
             code = gre.group(1)
             self.immsocket = QTcpSocket(parent=self)
+            self.immsocket.disconnected.connect(self.disconnected)
             self.debug(
                 "Connecting immediate socket to {}:{} with timeout {}".format(
                     self.server, self.immport, self.connect_timeout_ms))
