@@ -179,6 +179,12 @@ class SerialWriter(QObject, StatusMixin):
         self.busy = False
         # = "don't send new things immediately; we're in a delay"
 
+    def moveToThread(self, newthread):
+        super().moveToThread(newthread)
+        self.callback_timer.moveToThread(newthread)
+        # ... otherwise we get "Timers cannot be started from another thread"
+        # (under Windows; Linux Qt seems not to care).
+
     @exit_on_exception
     def start(self, serial_port):
         self.debug("starting")
