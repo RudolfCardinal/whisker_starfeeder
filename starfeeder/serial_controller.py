@@ -45,6 +45,11 @@ NO_BYTES = b''
 
 DEBUG_WRITE_TIMING = False
 
+READ_TIMEOUT_SEC = 0.01
+WRITE_TIMEOUT_SEC = 5.0  # None for blocking writes
+# ... but blocking writes can cause the app to freeze if the serial port breaks
+INTER_BYTE_TIMEOUT_SEC = None
+
 
 class SerialReader(QObject, StatusMixin):
     """
@@ -317,9 +322,9 @@ class SerialOwner(QObject, StatusMixin):
         # Serial port
         self.serial_args = serial_args
         self.serial_args.update(dict(
-            timeout=0.01,  # seconds
-            write_timeout=5.0,  # seconds; None for blocking writes
-            inter_byte_timeout=None,
+            timeout=READ_TIMEOUT_SEC,
+            write_timeout=WRITE_TIMEOUT_SEC,
+            inter_byte_timeout=INTER_BYTE_TIMEOUT_SEC,
         ))
         # timeout:
         #   read timeout... in seconds, when numeric

@@ -18,9 +18,10 @@
 """
 
 from enum import Enum
+from starfeeder.version import VERSION
 
 ABOUT = """
-<b>Starfeeder</b><br>
+<b>Starfeeder {VERSION}</b><br>
 <br>
 Whisker bird monitor.<br>
 <br>
@@ -31,8 +32,7 @@ Functions:
     <ul>
       <li>multiple radiofrequency identification (RFID) readers</li>
       <li>multiple weighing balances</li>
-      <li>one Whisker server (<a href="http://www.whiskercontrol.com/">"""\
-        """http://www.whiskercontrol.com/</a>)</li>
+      <li>one Whisker server (<a href="{WHISKER_URL}">{WHISKER_URL}</a>)</li>
     </ul>
   </li>
   <li>Detects the mass of subjects identified by their RFID (having configured
@@ -53,13 +53,12 @@ Hardware supported:
 You will also need:
 <ul>
   <li>A database. Any backend supported by SQLAlchemy will do (see
-    <a href="http://docs.sqlalchemy.org/en/latest/core/engines.html">"""\
-    """http://docs.sqlalchemy.org/en/latest/core/engines.html</a>).
+    <a href="{BACKEND_URL}">{BACKEND_URL}</a>).
     SQLite is quick. Starfeeder finds its database using the environment
     variable STARFEEDER_DATABASE_URL.</li>
   <li>You may want a graphical tool for database management. There are lots.
     For SQLite, consider Sqliteman
-    (<a href="http://sqliteman.yarpen.cz/">http://sqliteman.yarpen.cz/</a>).
+    (<a href="{SQLITEMAN_URL}">{SQLITEMAN_URL}</a>).
 </ul>
 
 By Rudolf Cardinal (rudolf@pobox.com).<br>
@@ -67,7 +66,12 @@ Copyright &copy; 2015 Rudolf Cardinal.
 For licensing details see LICENSE.txt.<br>
 External libraries used include Alembic; bitstring; PySerial; Qt (via PySide);
 SQLAlchemy.<br>
-"""
+""".format(
+    VERSION=VERSION,
+    WHISKER_URL="http://www.whiskercontrol.com/",
+    SQLITEMAN_URL="http://sqliteman.yarpen.cz/",
+    BACKEND_URL="http://docs.sqlalchemy.org/en/latest/core/engines.html",
+)
 
 BALANCE_ASF_MINIMUM = 0  # p37 of balance manual
 BALANCE_ASF_MAXIMUM = 8  # p37 of balance manual

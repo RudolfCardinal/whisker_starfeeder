@@ -750,8 +750,19 @@ Other packaging issues
 
     SUBSEQUENTLY: found EXE(console=False) option in .spec file
 
+  However, PyInstaller's support for "more than one script" is broken at the
+  moment: http://pythonhosted.org/PyInstaller/#multipackage-bundles
+  ... and we'd want some command-line access as well as no-console mode.
+
 - Since PyPI beats "github + tag" for version management, let's just use
   PyPI.
+
+- Argh, again.
+
+    - Python 3.5 isn't supported by some packages (bitstring?).
+    - "pip install PySide" fails with "Failed to find cmake".
+      THIS MAKES A pip METHOD TOO COMPLEX FOR END USERS; we have to use
+      PyInstaller.
 
 ===============================================================================
 setup.py; uploading to PyPI; etc

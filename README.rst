@@ -1,11 +1,18 @@
+==================
 Whisker Starfeeder
 ==================
+
+Purpose
+=======
 
 Manages radiofrequency identification (RFID) readers and weighing balances,
 and talks to a Whisker client (http://www.whiskercontrol.com/).
 
-Installation: Ubuntu Linux
---------------------------
+Install
+=======
+
+Ubuntu Linux
+------------
 
 From a command prompt:
 
@@ -20,8 +27,8 @@ From a command prompt:
     pip install starfeeder --process-dependency-links  # install from PyPI
 
 
-Installation: Windows
----------------------
+Windows
+-------
 
 You need to have Python 3 installed (which will come with :code:`pip`,
 :code:`pyvenv`, and :code:`virtualenv`).
@@ -40,27 +47,55 @@ Then fire up a Command Prompt and do:
 
 
 Run
----
+===
 
 Run the :code:`starfeeder` program from within your virtual environment.
 It will be at:
 
-*Linux*
+Linux
+-----
 
 .. code-block::
 
     /PATH/TO/MY/NEW/VIRTUALENV/bin/starfeeder
 
-*Windows*
+Windows
+-------
 
-.. code-block::
+*Windows: just the GUI*
 
-    C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\pythonw.exe C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\starfeeder-script.py
+    For normal use:
+
+    .. code-block::
+
+        C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\pythonw.exe C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\starfeeder-script.py
+
+*Windows: to see command-line output*
+
+    Use this for database upgrades, command-line help, and to see debugging output:
+
+    .. code-block::
+
+        C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\starfeeder
+
+    You can append :code:`-v` for more verbose output, or :code:`--help`
+    for full details.
+
+    If you use this method to run the graphical user interface (GUI) application,
+    **do not** close the console window (this will close the GUI app). Use the
+    method
 
 
-You can't yet run from a binary distribution
---------------------------------------------
+Single-folder binary distribution
+=================================
 
-A single-file installation based on PyInstaller isn't working at the moment;
-it pops up a console window (despite options asking it not to) and if this is
-closed, the GUI program terminates instantly, which is dangerous.
+**You can't yet install and run from a binary distribution.**
+
+A single-file or single-folder installation based on PyInstaller would be
+helpful; this bundles Python, the necessary virtual environment, and the
+application together. However, it isn't working at the moment.
+The app must be able to run without a command-line window, and
+should be able also to run with one (since additional command-line tools are
+required for database management), but PyInstaller's multipackage bundles are
+broken at the moment
+(http://pythonhosted.org/PyInstaller/#multipackage-bundles).

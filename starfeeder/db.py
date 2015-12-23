@@ -44,14 +44,12 @@ from starfeeder.settings import DATABASE_ENGINE
 
 if getattr(sys, 'frozen', False):
     # Running inside a PyInstaller bundle.
-    # __file__ will look like: '.../starfeeder/starfeeder/db.pyc'
-    # Normally
-    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-    CURRENT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, os.pardir))
+    # http://pythonhosted.org/PyInstaller/#run-time-operation
+    CURRENT_DIR = sys._MEIPASS
 else:
-    # Running normally.
-    # __file__ will look like: '.../starfeeder/db.py'
+    # Running in a normal Python environment.
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 ALEMBIC_CONFIG_FILENAME = os.path.join(CURRENT_DIR, 'alembic.ini')
 
 
