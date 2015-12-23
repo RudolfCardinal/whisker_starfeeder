@@ -17,7 +17,7 @@ From a command prompt:
 
     source /PATH/TO/MY/NEW/VIRTUALENV/bin/activate  # activate the virtualenv
 
-    pip install starfeeder  # install from PyPI
+    pip install starfeeder --process-dependency-links  # install from PyPI
 
 
 Installation: Windows
@@ -34,16 +34,16 @@ Then fire up a Command Prompt and do:
 
     C:\Python34\Scripts\virtualenv.exe C:\PATH\TO\MY\NEW\VIRTUALENV
 
-    C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\activate.bat
+    C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\activate
 
-    pip install starfeeder
+    pip install starfeeder --process-dependency-links
 
 
 Run
 ---
 
-Run the `starfeeder` program from within your virtual environment. It will be
-at:
+Run the :code:`starfeeder` program from within your virtual environment.
+It will be at:
 
 *Linux*
 
@@ -55,7 +55,7 @@ at:
 
 .. code-block::
 
-    C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\starfeeder.bat  # *** check
+    C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\starfeeder
 
 
 You can't yet run from a binary distribution

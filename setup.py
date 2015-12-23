@@ -103,8 +103,25 @@ setup(
         'pyserial==3.0b1',
     ],
     dependency_links=[
-        'git+https://github.com/pyserial/pyserial@3e02f7052747521a21723a618dccf303065da732#egg=pyserial-3.0b1',  # noqa
+        # We browse at https://github.com/pyserial/pyserial
+        # We want the commit 3e02f7052747521a21723a618dccf303065da732
+        # We want the tarball
+        # The API is:
+        #   GET /repos/:owner/:repo/:archive_format/:ref
+        #   - https://developer.github.com/v3/repos/contents/#get-archive-link
+        # or
+        #   https://github.com/user/project/archive/commit.zip
+        #   - http://stackoverflow.com/questions/17366784
+        # or
+        #   http://github.com/usr/repo/tarball/tag
+        # That gets us:
+        #   https://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065da732  # noqa
+        # We label it with "#egg=pyserial-3.0b1" for setup.py's benefit
+        #   http://stackoverflow.com/questions/3472430
+
+        'http://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065da732#egg=pyserial-3.0b1',  # noqa
     ],
+    # YOU MUST ALSO USE THE "--process-dependency-links" FLAG.
 
     entry_points={
         'console_scripts': [
