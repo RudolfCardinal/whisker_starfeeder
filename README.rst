@@ -55,7 +55,7 @@ It will be at:
 
 .. code-block::
 
-    C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\starfeeder
+    C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\pythonw.exe C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\starfeeder-script.py
 
 
 You can't yet run from a binary distribution

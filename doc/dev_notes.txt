@@ -748,6 +748,8 @@ Other packaging issues
   Since this is dangerous, and I haven't found a workaround, we have to
   abandon PyInstaller for now (it's currently version 3.1.dev0+93d25e5).
 
+    SUBSEQUENTLY: found EXE(console=False) option in .spec file
+
 - Since PyPI beats "github + tag" for version management, let's just use
   PyPI.
 
@@ -794,6 +796,5 @@ but not happy to be run and then disconnected ("starfeeder" -> CTRL-Z -> bg).
 TO DO
 ===============================================================================
 
-*** test on Windows
-*** test Whisker bits
-*** status for components inc. whisker connected/not
+*** test serial port on real Windows
+*** Pyinstaller: have found console=False flag; retry?
