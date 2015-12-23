@@ -374,6 +374,8 @@ class BaseWindow(QMainWindow):
             self.whisker_owner.error_sent.connect(self.on_status)
             self.whisker_owner.connected.connect(
                 lambda: self.on_whisker_state("Connected"))
+            self.whisker_owner.disconnected.connect(
+                lambda: self.on_whisker_state("Disconnected"))
             self.whisker_owner.finished.connect(
                 lambda: self.on_whisker_state("Disconnected"))
             # It's OK to connect signals before or after moving them to a

@@ -245,6 +245,7 @@ class WhiskerOwner(QObject, StatusMixin):
 
     @exit_on_exception
     def on_disconnect(self):
+        self.is_connected = False
         self.disconnected.emit()
         self.stop()
 
@@ -284,6 +285,9 @@ class WhiskerOwner(QObject, StatusMixin):
         self.connected.emit()
 
     def ping(self):
+        if not self.is_connected:
+            self.warning("Won't ping: not connected")
+            return
         self.ping_requested.emit()
 
 
