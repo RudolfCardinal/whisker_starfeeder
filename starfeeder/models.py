@@ -195,7 +195,7 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
         kwargs.setdefault('parity', serial.PARITY_NONE)
         kwargs.setdefault('stopbits', serial.STOPBITS_ONE)
         kwargs.setdefault('xonxoff', False)
-        kwargs.setdefault('rtscts', True)
+        kwargs.setdefault('rtscts', False)  # works under Linux, not Windows
         kwargs.setdefault('dsrdtr', False)
         SerialPortConfigMixin.__init__(self, **kwargs)
 
@@ -280,7 +280,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
         kwargs.setdefault('bytesize', serial.EIGHTBITS)
         kwargs.setdefault('parity', serial.PARITY_EVEN)
         kwargs.setdefault('stopbits', serial.STOPBITS_ONE)
-        kwargs.setdefault('xonxoff', True)
+        kwargs.setdefault('xonxoff', True)  # p15
         kwargs.setdefault('rtscts', False)
         kwargs.setdefault('dsrdtr', False)
         SerialPortConfigMixin.__init__(self, **kwargs)

@@ -56,6 +56,7 @@ from starfeeder.constants import (
     DATABASE_ENV_VAR_NOT_SPECIFIED,
     GUI_MASS_FORMAT,
     GUI_TIME_FORMAT,
+    HELP,
     WINDOW_TITLE,
     WRONG_DATABASE_VERSION_STUB,
 )
@@ -248,12 +249,16 @@ class BaseWindow(QMainWindow):
         self.ping_whisker_button.clicked.connect(self.ping_whisker)
         report_status_button = QPushButton('&Report status')
         report_status_button.clicked.connect(self.report_status)
-        report_status_button = QPushButton('&About')
-        report_status_button.clicked.connect(self.about)
+        help_button = QPushButton('&Help')
+        help_button.clicked.connect(self.help)
+        about_button = QPushButton('&About')
+        about_button.clicked.connect(self.about)
         test_layout.addWidget(self.reset_rfids_button)
         test_layout.addWidget(self.ping_balances_button)
         test_layout.addWidget(self.ping_whisker_button)
         test_layout.addWidget(report_status_button)
+        test_layout.addWidget(help_button)
+        test_layout.addWidget(about_button)
         test_layout.addStretch(1)
         test_group.setLayout(test_layout)
 
@@ -524,6 +529,10 @@ class BaseWindow(QMainWindow):
     @Slot()
     def about(self):
         QMessageBox.about(self, "Starfeeder", ABOUT)
+
+    @Slot()
+    def help(self):
+        QMessageBox.about(self, "Starfeeder", HELP)
 
     # -------------------------------------------------------------------------
     # Calibration

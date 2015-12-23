@@ -72,15 +72,9 @@ Qt (via PySide); SQLAlchemy.
     SQLITEMAN_URL="http://sqliteman.yarpen.cz/",
     BACKEND_URL="http://docs.sqlalchemy.org/en/latest/core/engines.html",
 )
-
 BALANCE_ASF_MINIMUM = 0  # p37 of balance manual
 BALANCE_ASF_MAXIMUM = 8  # p37 of balance manual
-GUI_MASS_FORMAT = '% 9.6f'
-GUI_TIME_FORMAT = '%H:%M:%S'
 DB_URL_ENV_VAR = "STARFEEDER_DATABASE_URL"
-LOG_FORMAT = '%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s:%(message)s'
-LOG_DATEFMT = '%Y-%m-%d %H:%M:%S'
-
 DATABASE_ENV_VAR_NOT_SPECIFIED = """
 ===============================================================================
 You must specify the {var} environment variable (which is an
@@ -92,7 +86,47 @@ Linux:
     export {var}=sqlite:////absolute/path/to/database.sqlite3
 ===============================================================================
 """.format(var=DB_URL_ENV_VAR)
-
+GUI_MASS_FORMAT = '% 9.6f'
+GUI_TIME_FORMAT = '%H:%M:%S'
+HELP = """
+<b>Troubleshooting</b><br>
+On Windows:
+<ul>
+  <li>Download and install PuTTY (<a href="{putty_url}">{putty_url}</a>); this
+    is a good terminal emulator (as well as an SSH client).</li>
+  <li>
+    For the RFID readers:
+    <ul>
+      <li>Connect to the correct COM port using the settings 9600, 8N1,
+        XON/XOFF (do not use RTS/CTS under Windows).</li>
+      <li>Use the keystrokes <b>x</b> for status (it should say
+        "MULTITAG-125 01"), <b>c</b> to start reading (it'll say nothing at
+        first, then spit out RFID codes when a tag is waved next to the
+        antenna), and <b>p</b> to stop reading (it'll say "S").
+        Note that the commands are case-sensitive and single-character only
+        (do not send a newline or you will cancel ongoing reads).</li>
+      <li>If it doesn't understand something, it will say "?".</li>
+    </ul>
+  </li>
+  <li>
+    For the balance:
+    <ul>
+      <li>Connect to the correct COM port using the settings 9600, 8<b>E</b>1,
+        XON/XOFF.</li>
+      <li>The balance is particularly frustrating, as it usually doesn't say
+        anything if you get the syntax wrong. Occasionally it says "?".</li>
+      <li>Type <b>RES;</b> to restart. There will be no reply.</li>
+      <li>Type <b>ESR?;</b> to request status. It should say "000".</li>
+      <li>Type <b>COF3;</b> to request ASCII output. It should say "0".</li>
+      <li>Type <b>MSV?10;</b> to request 10 readings. Data should come.</li>
+    </ul>
+  </li>
+</ul>
+""".format(
+    putty_url="http://www.chiark.greenend.org.uk/~sgtatham/putty/"
+)
+LOG_FORMAT = '%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s:%(message)s'
+LOG_DATEFMT = '%Y-%m-%d %H:%M:%S'
 WINDOW_TITLE = 'Starfeeder: RFID/balance controller for Whisker'
 WRONG_DATABASE_VERSION_STUB = """
 ===============================================================================

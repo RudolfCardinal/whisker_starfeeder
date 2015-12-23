@@ -422,8 +422,8 @@ class SerialOwner(QObject, StatusMixin):
             self.error("Can't start: state is: {}".format(self.state.name))
             return
         self.set_state(ThreadOwnerState.starting)
+        self.info("Opening serial port: {}".format(self.serial_args))
         try:
-            self.info("Opening serial port: {}".format(self.serial_args))
             self.serial_port = serial.Serial(**self.serial_args)
         except Exception as e:
             self.error(str(e))
@@ -463,6 +463,7 @@ class SerialOwner(QObject, StatusMixin):
             self.error("Can't stop: state is: {}".format(self.state.name))
             return
         self.set_state(ThreadOwnerState.stopping)
+        self.serial_port.close()  # for Windows
         self.debug("stop: asking threads to finish")
         if self.check_everything_finished():
             return
