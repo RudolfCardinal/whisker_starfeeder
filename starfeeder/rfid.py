@@ -143,6 +143,12 @@ class RfidController(SerialController):
         self.reset_timer = QTimer()
         self.reset_timer.timeout.connect(self.reset_2)
 
+    def moveToThread(self, newthread):
+        super().moveToThread(newthread)
+        self.reset_timer.moveToThread(newthread)
+        # ... otherwise we get "Timers cannot be started from another thread"
+        # (under Windows; Linux Qt seems not to care).
+
     @exit_on_exception
     def on_start(self):
         self.reset()
