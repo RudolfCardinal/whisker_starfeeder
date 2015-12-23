@@ -8,11 +8,17 @@ Purpose
 Manages radiofrequency identification (RFID) readers and weighing balances,
 and talks to a Whisker client (http://www.whiskercontrol.com/).
 
-Install
-=======
+Single-folder binary distribution
+=================================
 
-Ubuntu Linux
-------------
+Unzip the distributed file and double-click the :code:`starfeeder` program.
+That's it.
+
+Linux source installation
+=========================
+
+Install
+-------
 
 From a command prompt:
 
@@ -26,41 +32,44 @@ From a command prompt:
 
     pip install starfeeder --process-dependency-links  # install from PyPI
 
-
-Windows
--------
-
-You need to have Python 3 installed (which will come with :code:`pip`,
-:code:`pyvenv`, and :code:`virtualenv`).
-Obtain it from https://www.python.org/ and install it. We'll suppose you've
-installed Python at :code:`C:\Python34`.
-
-Then fire up a Command Prompt and do:
-
-.. code-block::
-
-    C:\Python34\Scripts\virtualenv.exe C:\PATH\TO\MY\NEW\VIRTUALENV
-
-    C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\activate
-
-    pip install starfeeder --process-dependency-links
-
-
 Run
-===
-
-Run the :code:`starfeeder` program from within your virtual environment.
-It will be at:
-
-Linux
------
+---
 
 .. code-block::
 
     /PATH/TO/MY/NEW/VIRTUALENV/bin/starfeeder
 
-Windows
+
+Windows source installation
+===========================
+
+*Deprecated, as it's complex.*
+
+Install
 -------
+
+1.  You need to have Python 3 installed (which will come with :code:`pip`,
+    :code:`pyvenv`, and :code:`virtualenv`).
+    Obtain it from https://www.python.org/ and install it. We'll suppose you've
+    installed Python at :code:`C:\Python34`.
+
+2.  Install a copy of :code:`cmake`, because PySide wants it.
+
+3.  Then fire up a Command Prompt and do:
+
+    .. code-block::
+
+        C:\Python34\Scripts\virtualenv.exe C:\PATH\TO\MY\NEW\VIRTUALENV
+
+        C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\activate
+
+        pip install starfeeder --process-dependency-links
+
+
+Run
+---
+
+Run the :code:`starfeeder` program from within your virtual environment.
 
 *Windows: just the GUI*
 
@@ -85,17 +94,3 @@ Windows
     **do not** close the console window (this will close the GUI app). Use the
     method
 
-
-Single-folder binary distribution
-=================================
-
-**You can't yet install and run from a binary distribution.**
-
-A single-file or single-folder installation based on PyInstaller would be
-helpful; this bundles Python, the necessary virtual environment, and the
-application together. However, it isn't working at the moment.
-The app must be able to run without a command-line window, and
-should be able also to run with one (since additional command-line tools are
-required for database management), but PyInstaller's multipackage bundles are
-broken at the moment
-(http://pythonhosted.org/PyInstaller/#multipackage-bundles).

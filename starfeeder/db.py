@@ -35,7 +35,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 # from starfeeder.alembic.current_revision import ALEMBIC_CURRENT_REVISION
-from starfeeder.settings import DATABASE_ENGINE
+from starfeeder.settings import get_database_settings
 
 
 # =============================================================================
@@ -58,7 +58,8 @@ ALEMBIC_CONFIG_FILENAME = os.path.join(CURRENT_DIR, 'alembic.ini')
 # =============================================================================
 
 def get_database_url():
-    return DATABASE_ENGINE['url']
+    settings = get_database_settings()
+    return settings['url']
 
 
 # =============================================================================
@@ -94,10 +95,7 @@ def get_current_revision(database_url):
     return mig_context.get_current_revision()
 
 
-def ensure_migration_is_latest():
-    """
-    Raise an exception if our database is not at the latest revision.
-    """
+def get_current_and_head_revision():
     # -------------------------------------------------------------------------
     # Where we are
     # -------------------------------------------------------------------------
@@ -113,18 +111,7 @@ def ensure_migration_is_latest():
     # -------------------------------------------------------------------------
     # Are we where we want to be?
     # -------------------------------------------------------------------------
-    if current_revision != head_revision:
-        raise ValueError("""
-===============================================================================
-Database revision should be {} but is {}.
-
-- If the database version is too low, run starfeeder with the
-  "--upgrade-database" parameter (because your database is too old).
-
-- If the database version is too high, upgrade starfeeder (because you're
-  trying to use an old starfeeder version with a newer database).
-===============================================================================
-        """.format(head_revision, current_revision))
+    return (current_revision, head_revision)
 
 
 def upgrade_database():
@@ -169,10 +156,10 @@ def database_is_sqlite():
 
 
 def get_database_engine():
-    database_url = get_database_url()
-    engine = create_engine(database_url,
-                           echo=DATABASE_ENGINE['echo'],
-                           connect_args=DATABASE_ENGINE['connect_args'])
+    settings = get_database_settings()
+    engine = create_engine(settings['url'],
+                           echo=settings['echo'],
+                           connect_args=settings['connect_args'])
     sqlite = database_is_sqlite()
     if not sqlite:
         return engine

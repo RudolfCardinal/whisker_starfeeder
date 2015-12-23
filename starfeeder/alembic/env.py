@@ -42,8 +42,9 @@ config = context.config
 from starfeeder.models import Base
 target_metadata = Base.metadata
 
-from starfeeder.settings import DATABASE_ENGINE
-config.set_main_option('sqlalchemy.url', DATABASE_ENGINE['url'])
+from starfeeder.settings import get_database_settings
+settings = get_database_settings()
+config.set_main_option('sqlalchemy.url', settings['url'])
 
 
 def run_migrations_offline():

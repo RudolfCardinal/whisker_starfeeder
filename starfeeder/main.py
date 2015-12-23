@@ -38,14 +38,24 @@ import sys
 import PySide
 from PySide.QtGui import QApplication
 
-from starfeeder.constants import DB_URL_ENV_VAR, LOG_FORMAT, LOG_DATEFMT
+from starfeeder.constants import (
+    DATABASE_ENV_VAR_NOT_SPECIFIED,
+    DB_URL_ENV_VAR,
+    LOG_FORMAT,
+    LOG_DATEFMT,
+    WRONG_DATABASE_VERSION_STUB,
+)
 from starfeeder.db import (
-    ensure_migration_is_latest,
+    get_current_and_head_revision,
     get_database_url,
     upgrade_database,
 )
 from starfeeder.debug_qt import enable_signal_debugging_simply
-from starfeeder.gui import BaseWindow
+from starfeeder.gui import (
+    BaseWindow,
+    NoDatabaseSpecifiedWindow,
+    WrongDatabaseVersionWindow,
+)
 from starfeeder.version import VERSION
 
 
@@ -57,6 +67,31 @@ DEBUG_SIGNALS = False
 
 if DEBUG_SIGNALS:
     enable_signal_debugging_simply()
+
+
+# =============================================================================
+# Several different GUIs...
+# =============================================================================
+
+def normal_gui(qt_args):
+    qt_app = QApplication(qt_args)
+    win = BaseWindow()
+    win.show()
+    return(qt_app.exec_())
+
+
+def no_database_specified_gui(qt_args):
+    qt_app = QApplication(qt_args)
+    win = NoDatabaseSpecifiedWindow()
+    win.show()
+    return(qt_app.exec_())
+
+
+def wrong_database_version_gui(qt_args, current_revision, head_revision):
+    qt_app = QApplication(qt_args)
+    win = WrongDatabaseVersionWindow(current_revision, head_revision)
+    win.show()
+    return(qt_app.exec_())
 
 
 # =============================================================================
@@ -79,6 +114,8 @@ def main():
                         help="Upgrade database (determined from SQLAlchemy"
                         " URL, read from {} environment variable) to current"
                         " version".format(DB_URL_ENV_VAR))
+    parser.add_argument('--gui', '-g', action="store_true",
+                        help="GUI mode only")
 
     # We could allow extra Qt arguments:
     # args, unparsed_args = parser.parse_known_args()
@@ -113,17 +150,39 @@ def main():
     logger.debug("qt_args: {}".format(qt_args))
     logger.debug("PySide version: {}".format(PySide.__version__))
     logger.debug("QtCore version: {}".format(PySide.QtCore.qVersion()))
-    if getattr(sys, 'frozen', False):
+    in_bundle = getattr(sys, 'frozen', False)
+    if in_bundle:
+        args.gui = True
         logger.debug("Running inside a PyInstaller bundle")
+    if args.gui:
+        logger.debug("Running in GUI-only mode")
 
     # -------------------------------------------------------------------------
     # Database
     # -------------------------------------------------------------------------
-    database_url = get_database_url()
+    # Get URL, or complain
+    try:
+        database_url = get_database_url()
+    except ValueError:
+        if args.gui:
+            sys.exit(no_database_specified_gui(qt_args))
+        else:
+            raise ValueError(DATABASE_ENV_VAR_NOT_SPECIFIED)
     logger.debug("Using database URL: {}".format(database_url))
+    # Has the user requested a command-line database upgrade?
     if args.upgrade_database:
         sys.exit(upgrade_database())
-    ensure_migration_is_latest()
+    # Is the database at the correct version?
+    (current_revision, head_revision) = get_current_and_head_revision()
+    if current_revision != head_revision:
+        if args.gui:
+            sys.exit(wrong_database_version_gui(qt_args,
+                                                current_revision,
+                                                head_revision))
+        else:
+            raise ValueError(WRONG_DATABASE_VERSION_STUB.format(
+                head_revision=head_revision,
+                current_revision=current_revision))
 
     # -------------------------------------------------------------------------
     # Messing around
@@ -135,12 +194,9 @@ def main():
     # print(w)
 
     # -------------------------------------------------------------------------
-    # Action
+    # Run app
     # -------------------------------------------------------------------------
-    qt_app = QApplication(qt_args)
-    win = BaseWindow()
-    win.show()
-    sys.exit(qt_app.exec_())
+    sys.exit(normal_gui(qt_args))
 
 
 # =============================================================================

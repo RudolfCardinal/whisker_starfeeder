@@ -64,8 +64,8 @@ You will also need:
 By Rudolf Cardinal (rudolf@pobox.com).<br>
 Copyright &copy; 2015 Rudolf Cardinal.
 For licensing details see LICENSE.txt.<br>
-External libraries used include Alembic; bitstring; PySerial; Qt (via PySide);
-SQLAlchemy.<br>
+External libraries used include Alembic; bitstring; PyInstaller; PySerial;
+Qt (via PySide); SQLAlchemy.
 """.format(
     VERSION=VERSION,
     WHISKER_URL="http://www.whiskercontrol.com/",
@@ -80,6 +80,32 @@ GUI_TIME_FORMAT = '%H:%M:%S'
 DB_URL_ENV_VAR = "STARFEEDER_DATABASE_URL"
 LOG_FORMAT = '%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s:%(message)s'
 LOG_DATEFMT = '%Y-%m-%d %H:%M:%S'
+
+DATABASE_ENV_VAR_NOT_SPECIFIED = """
+===============================================================================
+You must specify the {var} environment variable (which is an
+SQLAlchemy database URL). Examples follow.
+
+Windows:
+    set {var}=sqlite:///C:\\path\\to\\database.sqlite3
+Linux:
+    export {var}=sqlite:////absolute/path/to/database.sqlite3
+===============================================================================
+""".format(var=DB_URL_ENV_VAR)
+
+WINDOW_TITLE = 'Starfeeder: RFID/balance controller for Whisker'
+WRONG_DATABASE_VERSION_STUB = """
+===============================================================================
+Database revision should be {head_revision} but is {current_revision}.
+
+- If the database version is too low, run starfeeder with the
+  "--upgrade-database" parameter (because your database is too old), or click
+  the "Upgrade database" button in the GUI.
+
+- If the database version is too high, upgrade starfeeder (because you're
+  trying to use an old starfeeder version with a newer database).
+===============================================================================
+"""
 
 
 class ThreadOwnerState(Enum):

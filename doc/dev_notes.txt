@@ -764,6 +764,8 @@ Other packaging issues
       THIS MAKES A pip METHOD TOO COMPLEX FOR END USERS; we have to use
       PyInstaller.
 
+- That means that in the meantime, we must deal with everything via GUI.
+
 ===============================================================================
 setup.py; uploading to PyPI; etc
 ===============================================================================
