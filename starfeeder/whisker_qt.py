@@ -151,7 +151,7 @@ class WhiskerOwner(QObject, StatusMixin):
         self.state = ThreadOwnerState.stopped
         self.is_connected = False
 
-        self.mainsockthread = QThread()
+        self.mainsockthread = QThread(self)
         self.mainsock = WhiskerMainSocketListener(
             server,
             main_port,
@@ -160,7 +160,7 @@ class WhiskerOwner(QObject, StatusMixin):
             parent=None)  # must be None as it'll go to a different thread
         self.mainsock.moveToThread(self.mainsockthread)
 
-        self.taskthread = QThread()
+        self.taskthread = QThread(self)
         self.controller = WhiskerController(server)
         self.controller.moveToThread(self.taskthread)
         self.task = task
@@ -320,7 +320,7 @@ class WhiskerMainSocketListener(QObject, StatusMixin):
         self.finish_requested = False
         self.status("Connecting to {}:{} with timeout {} ms".format(
             self.server, self.port, self.connect_timeout_ms))
-        self.socket = QTcpSocket(parent=self)
+        self.socket = QTcpSocket(self)
         self.socket.disconnected.connect(self.disconnected)
         self.socket.connectToHost(self.server, self.port)
         if not self.socket.waitForConnected(self.connect_timeout_ms):
@@ -416,7 +416,7 @@ class WhiskerController(QObject, StatusMixin):
 
         if gre.search(CODE_REGEX, msg):
             code = gre.group(1)
-            self.immsocket = QTcpSocket(parent=self)
+            self.immsocket = QTcpSocket(self)
             self.immsocket.disconnected.connect(self.disconnected)
             self.debug(
                 "Connecting immediate socket to {}:{} with timeout {}".format(

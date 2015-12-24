@@ -215,6 +215,10 @@ Thread design
   - https://www.qtdeveloperdays.com/sites/default/files/David%20Johnson%20qthreads.pdf  # noqa
   - http://stackoverflow.com/questions/20324804  # particularly clear
 
+- Note that QObject-derived things should be OWNED if their parent may move
+  to a different thread. Create with, e.g. QTimer(self), not QTimer().
+  Find iffy ones with:
+    $ egrep "Q\w+\(\)" *.py
 
 GENERAL PRINCIPLES
 - Must assume main/GUI thread may block in response to user action.
@@ -819,5 +823,17 @@ On Linux, it's happy to be run ("starfeeder") or spawned ("starfeeder &),
 but not happy to be run and then disconnected ("starfeeder" -> CTRL-Z -> bg).
 
 ===============================================================================
+Documentation
+===============================================================================
+
+With docutils installed:
+
+wget http://docutils.sourceforge.net/sandbox/stylesheets/voidspace.css
+rst2html.py --stylesheet=voidspace.css README.rst > test.html
+
+===============================================================================
 TO DO
 ===============================================================================
+
+*** the ugly "moveToThread" overrides are probably necessary only because
+    I created QTimer() not QTimer(self). Change and test.

@@ -172,18 +172,16 @@ class SerialWriter(QObject, StatusMixin):
         self.serial_port = None  # set later
         self.eol = eol
         self.encoding = encoding
-        self.callback_timer = QTimer()
+        self.callback_timer = QTimer(self)
+        # If you use QTimer() rather than QTimer(self), you get
+        # "Timers cannot be started from another thread"
+        # (under Windows; Linux Qt seems not to care), unless you manually
+        # move the timer with a moveToThread() override (which is silly).
         self.callback_timer.timeout.connect(self.process_queue)
         self.queue = deque()  # contains (data, delay_ms) tuples
         # ... left end = next one to be sent; right = most recent request
         self.busy = False
         # = "don't send new things immediately; we're in a delay"
-
-    def moveToThread(self, newthread):
-        super().moveToThread(newthread)
-        self.callback_timer.moveToThread(newthread)
-        # ... otherwise we get "Timers cannot be started from another thread"
-        # (under Windows; Linux Qt seems not to care).
 
     @exit_on_exception
     def start(self, serial_port):
@@ -320,9 +318,9 @@ class SerialOwner(QObject, StatusMixin):
         writer_kwargs = writer_kwargs or {}
         controller_kwargs = controller_kwargs or {}
         self.serial_port = None
-        self.readerthread = QThread()
-        self.writerthread = QThread()
-        self.controllerthread = QThread()
+        self.readerthread = QThread(self)
+        self.writerthread = QThread(self)
+        self.controllerthread = QThread(self)
         self.state = ThreadOwnerState.stopped
 
         # Serial port

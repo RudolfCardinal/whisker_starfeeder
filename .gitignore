@@ -12,3 +12,5 @@ starfeeder.egg-info/*
 __pycache__/
 *.py[cod]
 
+# Documentation temporary files
+doc/manual.html

@@ -9,6 +9,7 @@ bitstring==3.1.3  # manipulation of binary numbers
 PySide==1.2.4  # Python interface to Qt
 six==1.10.0  # Python 2/3 compatibility library
 SQLAlchemy==1.0.9  # database ORM
+docutils  # documentation generation tools
 
 # -----------------------------------------------------------------------------
 # PyInstaller: packaging tool
