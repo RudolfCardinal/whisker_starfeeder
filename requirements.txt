@@ -9,7 +9,6 @@ bitstring==3.1.3  # manipulation of binary numbers
 PySide==1.2.4  # Python interface to Qt
 six==1.10.0  # Python 2/3 compatibility library
 SQLAlchemy==1.0.9  # database ORM
-docutils  # documentation generation tools
 
 # -----------------------------------------------------------------------------
 # PyInstaller: packaging tool
@@ -32,3 +31,8 @@ git+https://github.com/pyinstaller/pyinstaller@93d25e563e49f88f5977afd9b6e26cb34
 # git+https://github.com/pyserial/pyserial@3e02f7052747521a21723a618dccf303065da732  # pyserial==3.0b1
 
 https://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065da732  # pyserial==3.0b1, without the need for git installed
+
+# -----------------------------------------------------------------------------
+# For development only
+# -----------------------------------------------------------------------------
+docutils==0.12  # documentation generation tools
