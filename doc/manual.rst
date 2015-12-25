@@ -79,10 +79,6 @@ to recalibrate next time.
 
 .. image:: screenshots/calibrate_balance.png
 
-Tested and working on Windows XP, Windows 10, and Linux. The "Help" button
-gives tips on getting communication with the balance/RFID reader, since their
-interfaces are decidedly cryptic.
-
 When it's running and things are happening, it looks like this:
 
 .. image:: screenshots/running.png
@@ -96,3 +92,69 @@ Here are some examples of the output, as seen by Sqliteman:
 ... and by Whisker:
 
 .. image:: screenshots/whisker_event_log.png
+
+========================
+Operating systems tested
+========================
+
+- Linux (Ubuntu 14.04)
+- Windows XP
+- Windows 10
+
+===============
+Troubleshooting
+===============
+
+On Windows:
+
+-   Download and install PuTTY
+    (http://www.chiark.greenend.org.uk/~sgtatham/putty/); this is a good
+    terminal emulator (as well as an excellent SSH client).
+
+On Linux:
+
+-   Lots of ways. But using PySerial (as Starfeeder does):
+
+.. code-block::
+
+    pip install https://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065da732  # install PySerial 3.0b1
+
+    python -m serial.tools.miniterm /dev/ttyUSB0 9600 --eol LF --develop --parity N  # RFID reader
+
+    python -m serial.tools.miniterm /dev/ttyUSB1 9600 --eol LF --develop --parity E  # Balance
+
+Regardless of operating system:
+
+-   For the RFID readers:
+
+    -   Connect to the correct COM port using the settings 9600, 8N1,
+        XON/XOFF (do not use RTS/CTS under Windows).
+    -   A few key commands are shown below.
+    -   Note that the commands are case-sensitive and single-character only
+        (do not send a newline or you will cancel ongoing reads).
+    -   If it doesn't understand something, it will say "?".
+
+=============   ========    =================================================
+Action          You type    Reply
+=============   ========    =================================================
+Reset           ``x``       ``MULTITAG-125 01``
+Start reading   ``c``       nothing, then RFID tag codes as they are detected
+Stop reading    ``p``       ``S``
+=============   ========    =================================================
+
+-   For the balance:
+
+    -   Connect to the correct COM port using the settings 9600, **8E1**,
+        XON/XOFF.
+    -   The balance is particularly frustrating, as it usually doesn't say
+        anything if you get the syntax wrong. Occasionally it says ``?``.
+    -   Specimen commands are shown below.
+
+====================    ===========     =======
+Action                  You type        Reply
+====================    ===========     =======
+Restart                 ``RES;``        nothing
+Request status          ``ESR?;``       ``000``
+Request ASCII output    ``COF3;``       ``0``
+Request 10 readings     ``MSV?10;``     data
+====================    ===========     =======

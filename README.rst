@@ -126,10 +126,4 @@ v0.1.3 (IN PROGRESS)
     in GUI code where it just clutters things up needlessly.
     Note that ``QLayout.addWidget()``, ``QLayout.addLayout()``,
     and ``QWidget.setLayout()`` all take ownership.
-    Ownership is described at
-
-    - http://python-camelot.s3.amazonaws.com/default/2.7/doc/advanced/development.html
-    - http://enki-editor.org/2014/08/23/Pyqt_mem_mgmt.html
-    - https://wiki.qt.io/PySide_Shiboken_Object_Ownership
-    - https://srinikom.github.io/pyside-docs/PySide/QtGui/QLayout.html
-    - https://srinikom.github.io/pyside-docs/PySide/QtGui/QWidget.html
+-   Launch PDF manual as help.

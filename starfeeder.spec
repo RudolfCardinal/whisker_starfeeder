@@ -17,6 +17,7 @@ a = Analysis(
         # tuple is: source path/glob, destination directory
         # (regardless of what the docs suggest) and '' seems to
         # work for "the root directory"
+        ('dist/manual.pdf', ''),
         ('starfeeder/alembic.ini', ''),
         ('starfeeder/alembic/env.py', 'alembic'),
         ('starfeeder/alembic/versions/*.py', 'alembic/versions'),

@@ -12,6 +12,12 @@ rm -rf build/
 rm -rf dist/
 # NO, WE USE THIS NOW # rm -f starfeeder.spec
 
+echo "========================================================================"
+echo "Making documentation PDF"
+echo "========================================================================"
+"$THIS_SCRIPT_DIR/docbuild.sh"
+
+echo "========================================================================"
 echo "Building new distribution..."
 echo "========================================================================"
 # pyinstaller starfeeder/main.py --name starfeeder --additional-hooks-dir="$PROJECT_BASE/hooks" --clean --log-level=DEBUG

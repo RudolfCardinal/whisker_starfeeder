@@ -19,7 +19,9 @@
 
 from collections import OrderedDict
 import inspect
+import os
 import re
+import subprocess
 import sys
 
 
@@ -157,7 +159,7 @@ class OrderedNamespace(object):
 
 
 # =============================================================================
-# Repr assistance function
+# repr assistance function
 # =============================================================================
 
 def ordered_repr(obj, attrlist):
@@ -182,3 +184,14 @@ def simple_repr(obj):
         kvp=", ".join("{}={}".format(k, repr(v))
                       for k, v in obj.__dict__.items())
     )
+
+
+# =============================================================================
+# Launch external file using OS's launcher
+# =============================================================================
+
+def launch_external_file(filename):
+    if sys.platform.startswith('linux'):
+        subprocess.call(["xdg-open", filename])
+    else:
+        os.startfile(filename)

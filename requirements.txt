@@ -35,4 +35,5 @@ https://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065
 # -----------------------------------------------------------------------------
 # For development only
 # -----------------------------------------------------------------------------
+colorama
 docutils==0.12  # documentation generation tools

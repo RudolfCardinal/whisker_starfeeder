@@ -56,7 +56,8 @@ from starfeeder.constants import (
     DATABASE_ENV_VAR_NOT_SPECIFIED,
     GUI_MASS_FORMAT,
     GUI_TIME_FORMAT,
-    HELP,
+    # HELP,
+    MANUAL_FILENAME,
     WINDOW_TITLE,
     WRONG_DATABASE_VERSION_STUB,
 )
@@ -65,7 +66,7 @@ from starfeeder.db import (
     session_thread_scope,
     upgrade_database,
 )
-from starfeeder.lang import natural_keys
+from starfeeder.lang import launch_external_file, natural_keys
 from starfeeder.models import (
     BalanceConfig,
     MassEventRecord,
@@ -534,7 +535,9 @@ class BaseWindow(QMainWindow):
 
     @Slot()
     def help(self):
-        QMessageBox.about(self, "Starfeeder", HELP)
+        launch_external_file(MANUAL_FILENAME)
+        self.status("Launched {}".format(MANUAL_FILENAME))
+        # QMessageBox.about(self, "Starfeeder", HELP)
 
     # -------------------------------------------------------------------------
     # Calibration

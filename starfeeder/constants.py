@@ -18,7 +18,10 @@
 """
 
 from enum import Enum
+import os
+import sys
 from starfeeder.version import VERSION
+
 
 ABOUT = """
 <b>Starfeeder {VERSION}</b><br>
@@ -88,58 +91,6 @@ Linux:
 """.format(var=DB_URL_ENV_VAR)
 GUI_MASS_FORMAT = '% 9.6f'
 GUI_TIME_FORMAT = '%H:%M:%S'
-HELP = """
-<b>Troubleshooting</b><br>
-On Windows:
-<ul>
-  <li>Download and install PuTTY (<a href="{putty_url}">{putty_url}</a>); this
-    is a good terminal emulator (as well as an SSH client).</li>
-  <li>
-    For the RFID readers:
-    <ul>
-      <li>Connect to the correct COM port using the settings 9600, 8N1,
-        XON/XOFF (do not use RTS/CTS under Windows).</li>
-      <li>Use the keystrokes <b>x</b> for status (it should say
-        "MULTITAG-125 01"), <b>c</b> to start reading (it'll say nothing at
-        first, then spit out RFID codes when a tag is waved next to the
-        antenna), and <b>p</b> to stop reading (it'll say "S").
-        Note that the commands are case-sensitive and single-character only
-        (do not send a newline or you will cancel ongoing reads).</li>
-      <li>If it doesn't understand something, it will say "?".</li>
-    </ul>
-  </li>
-  <li>
-    For the balance:
-      <li>Connect to the correct COM port using the settings 9600, 8<b>E</b>1,
-        XON/XOFF.</li>
-      <li>The balance is particularly frustrating, as it usually doesn't say
-        anything if you get the syntax wrong. Occasionally it says "?".</li>
-      <li>Type <b>RES;</b> to restart. There will be no reply.</li>
-      <li>Type <b>ESR?;</b> to request status. It should say "000".</li>
-      <li>Type <b>COF3;</b> to request ASCII output. It should say "0".</li>
-      <li>Type <b>MSV?10;</b> to request 10 readings. Data should come.</li>
-    <ul>
-    </ul>
-  </li>
-</ul>
-On Linux:
-<ul>
-  <li>Lots of ways. But using PySerial (as Starfeeder does), following
-    <b>pip install {pyserial_req}</b>, ...</li>
-  <li>RFID reader:
-    <b>python -m serial.tools.miniterm /dev/ttyUSB0 9600
-    --eol LF --develop --parity N</b></li>
-  <li>BALANCE:
-    <b>python -m serial.tools.miniterm /dev/ttyUSB1 9600
-    --eol LF --develop --parity E</b></li>
-</ul>
-""".format(
-    putty_url="http://www.chiark.greenend.org.uk/~sgtatham/putty/",
-    pyserial_req=(
-        "https://github.com/pyserial/pyserial/tarball/"
-        "3e02f7052747521a21723a618dccf303065da732"
-    ),
-)
 LOG_FORMAT = '%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s:%(message)s'
 LOG_DATEFMT = '%Y-%m-%d %H:%M:%S'
 WINDOW_TITLE = 'Starfeeder: RFID/balance controller for Whisker'
@@ -156,6 +107,25 @@ Database revision should be {head_revision} but is {current_revision}.
 ===============================================================================
 """
 
+# =============================================================================
+# Find out where Alembic and other files live
+# =============================================================================
+
+if getattr(sys, 'frozen', False):
+    # Running inside a PyInstaller bundle.
+    # http://pythonhosted.org/PyInstaller/#run-time-operation
+    CURRENT_DIR = sys._MEIPASS
+else:
+    # Running in a normal Python environment.
+    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+ALEMBIC_CONFIG_FILENAME = os.path.join(CURRENT_DIR, 'alembic.ini')
+MANUAL_FILENAME = os.path.join(CURRENT_DIR, 'manual.pdf')
+
+
+# =============================================================================
+# Thread state enum
+# =============================================================================
 
 class ThreadOwnerState(Enum):
     stopped = 0

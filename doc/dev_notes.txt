@@ -327,7 +327,18 @@ Object ownership
   - http://stackoverflow.com/questions/25450598
 - However, objects to be moved to a thread with moveToThread() can't have a
   parent (helpfully: "Cannot move objects with a parent").
+  ... though ALL THEIR CHILDREN must have them as a parent, or the child
+  objects won't be moved correctly.
 - Gotchas: http://enki-editor.org/2014/08/23/Pyqt_mem_mgmt.html
+
+    Ownership is described at
+
+    - http://python-camelot.s3.amazonaws.com/default/2.7/doc/advanced/development.html
+    - http://enki-editor.org/2014/08/23/Pyqt_mem_mgmt.html
+    - https://wiki.qt.io/PySide_Shiboken_Object_Ownership
+    - https://srinikom.github.io/pyside-docs/PySide/QtGui/QLayout.html
+    - https://srinikom.github.io/pyside-docs/PySide/QtGui/QWidget.html
+
 
 Database ORM
 - SQLAlchemy is the obvious choice for Python.
@@ -835,5 +846,11 @@ rst2html.py --stylesheet=voidspace.css README.rst > test.html
 TO DO
 ===============================================================================
 
-*** the ugly "moveToThread" overrides are probably necessary only because
-    I created QTimer() not QTimer(self). Change and test.
+*** test PDF launcher under Windows
+*** bundle PDF with PyInstaller
+*** test PDF launching from PyInstaller bundle
+
+*** pipe RST -> PDF without temporary HTML
+*** temporary store for PDF is in build, not dist
+
+*** retest hardware on Windows, then ship it back

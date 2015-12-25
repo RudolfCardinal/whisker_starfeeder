@@ -10,6 +10,12 @@ echo Deleting old distribution...
 rmdir /s /q build
 rmdir /s /q dist
 
+echo ==========================================================================
+echo Making documentation PDF
+echo ==========================================================================
+"$THIS_SCRIPT_DIR/docbuild.bat"
+
+echo ==========================================================================
 echo Building new distribution...
 echo ==========================================================================
 pyinstaller --clean --noconsole --log-level=INFO starfeeder.spec

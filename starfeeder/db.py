@@ -23,34 +23,16 @@ import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 import os
-# import subprocess
-import sys
 
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.runtime.environment import EnvironmentContext
 from alembic.script import ScriptDirectory
-# ... don't comment this out; PyInstaller ignores Alembic otherwise.
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-# from starfeeder.alembic.current_revision import ALEMBIC_CURRENT_REVISION
+from starfeeder.constants import ALEMBIC_CONFIG_FILENAME, CURRENT_DIR
 from starfeeder.settings import get_database_settings
-
-
-# =============================================================================
-# Find out where Alembic files live
-# =============================================================================
-
-if getattr(sys, 'frozen', False):
-    # Running inside a PyInstaller bundle.
-    # http://pythonhosted.org/PyInstaller/#run-time-operation
-    CURRENT_DIR = sys._MEIPASS
-else:
-    # Running in a normal Python environment.
-    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-ALEMBIC_CONFIG_FILENAME = os.path.join(CURRENT_DIR, 'alembic.ini')
 
 
 # =============================================================================
@@ -75,14 +57,6 @@ def get_head_revision_from_alembic():
     config = Config(ALEMBIC_CONFIG_FILENAME)
     script = ScriptDirectory.from_config(config)
     return script.get_current_head()
-
-
-# def get_head_revision_without_alembic():
-#     """
-#     Uses our hacky Python file (written by a shell script) to track the
-#     revision. SUPERSEDED; we'll use Alembic directly.
-#     """
-#     return ALEMBIC_CURRENT_REVISION
 
 
 def get_current_revision(database_url):
