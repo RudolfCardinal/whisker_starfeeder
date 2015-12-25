@@ -7,9 +7,6 @@ import shutil
 import subprocess
 import sys
 
-from colorama import init, Fore, Style
-init(autoreset=True)
-
 DESCRIPTION = """
 Make a new virtual environment.
 Please specify the directory in which the virtual environment should be
@@ -35,27 +32,10 @@ DEBIAN_REQ_FILE = os.path.join(PROJECT_BASE_DIR, 'requirements-ubuntu.txt')
 SEP = "=" * 79
 
 
-def error(msg):
-    print(Fore.RED + msg)
-
-
-def warn(msg):
-    print(Fore.YELLOW + msg)
-
-
-def reassure(msg):
-    print(Fore.GREEN + msg)
-
-
-def bold(msg):
-    print(Style.BRIGHT + msg)
-
-
 def title(msg):
-    colours = Fore.YELLOW + Style.BRIGHT
-    print(colours + SEP)
-    print(colours + msg)
-    print(colours + SEP)
+    print(SEP)
+    print(msg)
+    print(SEP)
 
 
 def require_debian_package(package):
@@ -68,9 +48,9 @@ def require_debian_package(package):
     retcode = proc.returncode
     if retcode == 0:
         return
-    warn("You must install the package {package}. On Ubuntu, use the command:"
-         "\n"
-         "    sudo apt-get install {package}".format(package=package))
+    print("You must install the package {package}. On Ubuntu, use the command:"
+          "\n"
+          "    sudo apt-get install {package}".format(package=package))
     sys.exit(1)
 
 
@@ -104,7 +84,7 @@ if __name__ == '__main__':
             package = line.strip()
             if package:
                 require_debian_package(package)
-    reassure('OK')
+    print('OK')
 
     if LINUX:
         title("Ensuring virtualenv is installed for system"
@@ -112,14 +92,14 @@ if __name__ == '__main__':
         subprocess.check_call(
             [PIP, 'install',
              'virtualenv>={}'.format(args.virtualenv_minimum_version)])
-        reassure('OK')
+        print('OK')
 
     title(
         "Using system Python ({}) and virtualenv tool ({}) to make {}".format(
             PYTHON, VENV_TOOL, args.virtualenv))
     subprocess.check_call(
         [PYTHON, '-m', VENV_TOOL, args.virtualenv])
-    reassure('OK')
+    print('OK')
 
     title("Checking version of tools within new virtualenv")
     print(VENV_PYTHON)
@@ -129,10 +109,10 @@ if __name__ == '__main__':
 
     title("Use pip within the new virtualenv to install dependencies")
     subprocess.check_call([VENV_PIP, 'install', '-r', PIP_REQ_FILE])
-    reassure('OK')
-    reassure('--- Virtual environment installed successfully')
+    print('OK')
+    print('--- Virtual environment installed successfully')
 
-    bold("""
+    print("""
 To activate the virtual environment, use
     {ACTIVATE}
 
