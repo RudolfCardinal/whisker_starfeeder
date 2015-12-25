@@ -7,6 +7,9 @@ import shutil
 import subprocess
 import sys
 
+if sys.version_info[0] < 3:
+    raise AssertionError("Need Python 3")
+
 DESCRIPTION = """
 Make a new virtual environment.
 Please specify the directory in which the virtual environment should be
@@ -55,8 +58,6 @@ def require_debian_package(package):
 
 
 if __name__ == '__main__':
-    if sys.version_info[0] < 3:
-        raise AssertionError("Need Python 3")
     parser = argparse.ArgumentParser(
         description=DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter)
