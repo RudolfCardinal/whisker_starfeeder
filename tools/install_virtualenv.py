@@ -67,12 +67,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if LINUX:
-        VENV_TOOL_LIST = ['-m', 'virtualenv']
+        VENV_TOOL = 'virtualenv'
         VENV_PYTHON = os.path.join(args.virtualenv, 'bin', 'python')
         VENV_PIP = os.path.join(args.virtualenv, 'bin', 'pip')
         ACTIVATE = "source " + os.path.join(args.virtualenv, 'bin', 'activate')
     else:  # Windows
-        VENV_TOOL_LIST = ['pyvenv.py']
+        VENV_TOOL = 'venv'  # pyvenv.py, but you can use "-m venv"
         VENV_PYTHON = os.path.join(args.virtualenv, 'python.exe')
         VENV_PIP = os.path.join(args.virtualenv, 'Scripts', 'pip.exe')
         ACTIVATE = "call " + os.path.join(args.virtualenv, 'Scripts',
@@ -97,9 +97,9 @@ if __name__ == '__main__':
 
     title(
         "Using system Python ({}) and virtualenv tool ({}) to make {}".format(
-            PYTHON, VENV_TOOL_LIST, args.virtualenv))
+            PYTHON, VENV_TOOL, args.virtualenv))
     subprocess.check_call(
-        [PYTHON] + VENV_TOOL_LIST + [args.virtualenv])
+        [PYTHON, '-m', VENV_TOOL, args.virtualenv])
     print('OK')
 
     title("Checking version of tools within new virtualenv")
