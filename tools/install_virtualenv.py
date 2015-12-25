@@ -73,7 +73,7 @@ if __name__ == '__main__':
         ACTIVATE = "source " + os.path.join(args.virtualenv, 'bin', 'activate')
     else:  # Windows
         VENV_TOOL = 'venv'  # pyvenv.py, but you can use "-m venv"
-        VENV_PYTHON = os.path.join(args.virtualenv, 'python.exe')
+        VENV_PYTHON = os.path.join(args.virtualenv, 'Scripts', 'python.exe')
         VENV_PIP = os.path.join(args.virtualenv, 'Scripts', 'pip.exe')
         ACTIVATE = "call " + os.path.join(args.virtualenv, 'Scripts',
                                           'activate')
