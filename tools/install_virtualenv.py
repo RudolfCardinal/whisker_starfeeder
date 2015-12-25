@@ -67,27 +67,27 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if LINUX:
-        VENV_TOOL = 'virtualenv'
+        VENV_TOOL_LIST = ['-m', 'virtualenv']
         VENV_PYTHON = os.path.join(args.virtualenv, 'bin', 'python')
         VENV_PIP = os.path.join(args.virtualenv, 'bin', 'pip')
         ACTIVATE = "source " + os.path.join(args.virtualenv, 'bin', 'activate')
     else:  # Windows
-        VENV_TOOL = 'pyvenv.py'
+        VENV_TOOL_LIST = ['pyvenv.py']
         VENV_PYTHON = os.path.join(args.virtualenv, 'python.exe')
         VENV_PIP = os.path.join(args.virtualenv, 'Scripts', 'pip.exe')
         ACTIVATE = "call " + os.path.join(args.virtualenv, 'Scripts',
                                           'activate')
 
-    title("Prerequisites, from " + DEBIAN_REQ_FILE)
-    print("XDG_CACHE_HOME: {}".format(os.environ.get('XDG_CACHE_HOME', None)))
-    with open(DEBIAN_REQ_FILE) as f:
-        for line in f:
-            package = line.strip()
-            if package:
-                require_debian_package(package)
-    print('OK')
-
     if LINUX:
+        title("Prerequisites, from " + DEBIAN_REQ_FILE)
+        print("XDG_CACHE_HOME: {}".format(os.environ.get('XDG_CACHE_HOME', None)))
+        with open(DEBIAN_REQ_FILE) as f:
+            for line in f:
+                package = line.strip()
+                if package:
+                    require_debian_package(package)
+        print('OK')
+
         title("Ensuring virtualenv is installed for system"
               " Python ({})".format(PYTHON))
         subprocess.check_call(
@@ -97,9 +97,9 @@ if __name__ == '__main__':
 
     title(
         "Using system Python ({}) and virtualenv tool ({}) to make {}".format(
-            PYTHON, VENV_TOOL, args.virtualenv))
+            PYTHON, VENV_TOOL_LIST, args.virtualenv))
     subprocess.check_call(
-        [PYTHON, '-m', VENV_TOOL, args.virtualenv])
+        [PYTHON] + VENV_TOOL_LIST + [args.virtualenv])
     print('OK')
 
     title("Checking version of tools within new virtualenv")
