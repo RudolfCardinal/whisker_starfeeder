@@ -232,6 +232,7 @@ class RfidOwner(SerialOwner):
         super().__init__(
             serial_args=rfid_config.get_serial_args(),
             parent=parent,
+            callback_id=rfid_config.id,
             name=rfid_config.name,
             rx_eol=CRLF,
             tx_eol=NO_BYTES,

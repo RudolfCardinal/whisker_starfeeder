@@ -88,7 +88,7 @@ class SerialReader(QObject, StatusMixin):
                     self.process_data(data)
         # except serial.SerialException as e:
         except Exception as e:
-            self.debug("----- EXCEPTION within SerialReader")
+            self.error("----- EXCEPTION within SerialReader")
             self.error(str(e))
         # We should catch serial.SerialException, but there is a bug in
         # serial/serialposix.py that does "if e[0] != errno.EAGAIN", which
@@ -287,7 +287,7 @@ class SerialOwner(QObject, StatusMixin):
     # Outwards, to world:
     started = Signal()
     finished = Signal()
-    state_change = Signal(str)
+    state_change = Signal(int, str)
     # Inwards, to possessions:
     reader_start_requested = Signal(serial.Serial)
     writer_start_requested = Signal(serial.Serial)
@@ -297,7 +297,7 @@ class SerialOwner(QObject, StatusMixin):
     status_requested = Signal()
 
     def __init__(self, serial_args, parent=None, rx_eol=LF, tx_eol=LF,
-                 name='?', encoding='utf8',
+                 callback_id=None, name='?', encoding='utf8',
                  reader_class=SerialReader, reader_kwargs=None,
                  writer_class=SerialWriter, writer_kwargs=None,
                  controller_class=SerialController, controller_kwargs=None):
@@ -314,6 +314,7 @@ class SerialOwner(QObject, StatusMixin):
         """
         super().__init__(parent)
         StatusMixin.__init__(self, name, logger)
+        self.callback_id = callback_id
         reader_kwargs = reader_kwargs or {}
         writer_kwargs = writer_kwargs or {}
         controller_kwargs = controller_kwargs or {}
@@ -409,7 +410,7 @@ class SerialOwner(QObject, StatusMixin):
     def set_state(self, state):
         self.debug("state: {} -> {}".format(self.state.name, state.name))
         self.state = state
-        self.state_change.emit(state.name)
+        self.state_change.emit(self.callback_id, state.name)
 
     # -------------------------------------------------------------------------
     # Starting
@@ -467,7 +468,6 @@ class SerialOwner(QObject, StatusMixin):
             self.error("Can't stop: state is: {}".format(self.state.name))
             return
         self.set_state(ThreadOwnerState.stopping)
-        self.serial_port.close()  # for Windows
         self.debug("stop: asking threads to finish")
         if self.check_everything_finished():
             return
@@ -498,6 +498,7 @@ class SerialOwner(QObject, StatusMixin):
                 or self.writerthread.isRunning()
                 or self.controllerthread.isRunning()):
             return False
+        self.serial_port.close()  # for Windows
         self.set_state(ThreadOwnerState.stopped)
         self.finished.emit()
         return True

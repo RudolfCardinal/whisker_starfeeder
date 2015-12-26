@@ -440,6 +440,7 @@ class BalanceOwner(SerialOwner):
         super().__init__(
             serial_args=balance_config.get_serial_args(),
             parent=parent,
+            callback_id=balance_config.id,
             name=balance_config.name,
             rx_eol=CRLF,
             tx_eol=b";",

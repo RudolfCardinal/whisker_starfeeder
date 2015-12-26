@@ -374,11 +374,11 @@ class BaseWindow(QMainWindow):
             self.whisker_owner.status_sent.connect(self.on_status)
             self.whisker_owner.error_sent.connect(self.on_status)
             self.whisker_owner.connected.connect(
-                lambda: self.on_whisker_state("Connected"))
+                self.on_whisker_state_connected)
             self.whisker_owner.disconnected.connect(
-                lambda: self.on_whisker_state("Disconnected"))
+                self.on_whisker_state_disconnected)
             self.whisker_owner.finished.connect(
-                lambda: self.on_whisker_state("Disconnected"))
+                self.on_whisker_state_disconnected)
             # It's OK to connect signals before or after moving them to a
             # different thread: http://stackoverflow.com/questions/20752154
             # We don't want time-critical signals going via the GUI thread,
@@ -400,8 +400,7 @@ class BaseWindow(QMainWindow):
                 rfid.finished.connect(self.something_finished)
                 rfid.rfid_received.connect(self.whisker_task.on_rfid)
                 rfid.rfid_received.connect(self.on_rfid)
-                rfid.state_change.connect(
-                    lambda state: self.on_rfid_state(i, state))
+                rfid.state_change.connect(self.on_rfid_state)
                 self.rfid_list.append(rfid)
                 self.rfid_id_to_obj[rfid.reader_id] = rfid
                 self.rfid_id_to_idx[rfid.reader_id] = i
@@ -429,8 +428,7 @@ class BaseWindow(QMainWindow):
                 balance.mass_received.connect(self.whisker_task.on_mass)
                 balance.mass_received.connect(self.on_mass)
                 balance.calibrated.connect(self.on_calibrated)
-                balance.state_change.connect(
-                    lambda state: self.on_balance_state(i, state))
+                balance.state_change.connect(self.on_balance_state)
                 self.balance_list.append(balance)
                 self.balance_id_to_obj[balance.balance_id] = balance
                 self.balance_id_to_idx[balance.balance_id] = i
@@ -741,15 +739,21 @@ class BaseWindow(QMainWindow):
                 mass_event.timestamp.strftime(GUI_TIME_FORMAT))
 
     @exit_on_exception
-    def on_whisker_state(self, state):
-        self.whisker_label_status.setText(state)
+    def on_whisker_state_connected(self):
+        self.whisker_label_status.setText("Connected")
 
     @exit_on_exception
-    def on_rfid_state(self, rfid_index, state):
+    def on_whisker_state_disconnected(self):
+        self.whisker_label_status.setText("Disconnected")
+
+    @exit_on_exception
+    def on_rfid_state(self, reader_id, state):
+        rfid_index = self.rfid_id_to_idx[reader_id]
         self.rfid_labels_status[rfid_index].setText(state)
 
     @exit_on_exception
-    def on_balance_state(self, balance_index, state):
+    def on_balance_state(self, balance_id, state):
+        balance_index = self.balance_id_to_idx[balance_id]
         self.balance_labels_status[balance_index].setText(state)
 
     def set_button_states(self):

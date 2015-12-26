@@ -834,6 +834,19 @@ On Linux, it's happy to be run ("starfeeder") or spawned ("starfeeder &),
 but not happy to be run and then disconnected ("starfeeder" -> CTRL-Z -> bg).
 
 ===============================================================================
+Debugging segmentation faults
+===============================================================================
+
+$ gdb python
+(gdb) run run_dev.py
+... run ... crash
+(gdb) bt
+
+
+... the specific problem related to using lambdas as slots:
+    https://bugreports.qt.io/browse/PYSIDE-88
+
+===============================================================================
 Documentation
 ===============================================================================
 
@@ -847,10 +860,7 @@ TO DO
 ===============================================================================
 
 *** test PDF launcher under Windows
-*** bundle PDF with PyInstaller
-*** test PDF launching from PyInstaller bundle
-
-*** pipe RST -> PDF without temporary HTML
-*** temporary store for PDF is in build, not dist
 
 *** retest hardware on Windows, then ship it back
+
+*** segfault on exit

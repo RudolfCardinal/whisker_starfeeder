@@ -126,4 +126,6 @@ v0.1.3 (IN PROGRESS)
     in GUI code where it just clutters things up needlessly.
     Note that ``QLayout.addWidget()``, ``QLayout.addLayout()``,
     and ``QWidget.setLayout()`` all take ownership.
+-   Bugfix related to using lambdas as slots (PySide causes a segmentation
+    fault on exit; https://bugreports.qt.io/browse/PYSIDE-88).
 -   Launch PDF manual as help.
