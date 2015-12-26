@@ -117,8 +117,9 @@ Changelog
 v0.1.2 (2015-12-23)
 
 -   Initial release.
+-   Hardware tested via Windows XP, Windows 10, and Ubuntu 14.04.
 
-v0.1.3 (IN PROGRESS)
+v0.1.3 (2015-12-26)
 
 -   Ugly ``moveToThread()`` hack fixed by declaring ``QTimer(self)``
     rather than ``QTimer()``.
@@ -129,3 +130,4 @@ v0.1.3 (IN PROGRESS)
 -   Bugfix related to using lambdas as slots (PySide causes a segmentation
     fault on exit; https://bugreports.qt.io/browse/PYSIDE-88).
 -   Launch PDF manual as help.
+-   Retested with hardware on Windows XP and Linux.
