@@ -7,8 +7,6 @@ import shutil
 import subprocess
 import sys
 
-from starfeeder.version import VERSION
-
 if sys.version_info[0] < 3:
     raise AssertionError("Need Python 3")
 LINUX = platform.system() == 'Linux'
@@ -22,13 +20,20 @@ else:  # Windows
     ZIPFORMAT = "zip"
     ZIPEXT = "zip"
 
-
+PYTHON = sys.executable
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_BASE_DIR = os.path.abspath(os.path.join(CURRENT_DIR, os.pardir))
 BUILD_DIR = os.path.join(PROJECT_BASE_DIR, 'build')
 DIST_DIR = os.path.join(PROJECT_BASE_DIR, 'dist')
 DIST_SUBDIR = os.path.join(DIST_DIR, 'starfeeder')
 LAUNCHFILE = os.path.join(DIST_SUBDIR, 'starfeeder')
+
+try:
+    from starfeeder.version import VERSION
+except ImportError:
+    print("If running under Windows, add {} to "
+          "PYTHONPATH".format(PROJECT_BASE_DIR))
+    raise
 
 DOCMAKER = os.path.join(PROJECT_BASE_DIR, 'tools', 'docbuild.py')
 SPECFILE = os.path.join(PROJECT_BASE_DIR, 'starfeeder.spec')
@@ -56,7 +61,7 @@ if __name__ == '__main__':
     os.makedirs(DIST_DIR, exist_ok=True)
 
     title("Making documentation PDF")
-    subprocess.check_call(DOCMAKER)
+    subprocess.check_call([PYTHON, DOCMAKER])
 
     title("Building new distribution...")
     subprocess.check_call(

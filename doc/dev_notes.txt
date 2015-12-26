@@ -862,5 +862,3 @@ TO DO
 *** test PDF launcher under Windows
 
 *** retest hardware on Windows, then ship it back
-
-*** segfault on exit
