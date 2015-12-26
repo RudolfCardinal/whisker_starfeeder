@@ -23,7 +23,7 @@ or for a production environment:
 
 LINUX = platform.system() == 'Linux'
 
-PYTHON = sys.executable
+PYTHON = sys.executable  # Windows needs this before Python executables
 PYTHONBASE = os.path.basename(PYTHON)
 PIP = shutil.which('pip3')
 
@@ -80,7 +80,8 @@ if __name__ == '__main__':
 
     if LINUX:
         title("Prerequisites, from " + DEBIAN_REQ_FILE)
-        print("XDG_CACHE_HOME: {}".format(os.environ.get('XDG_CACHE_HOME', None)))
+        print("XDG_CACHE_HOME: {}".format(os.environ.get('XDG_CACHE_HOME',
+                                                         None)))
         with open(DEBIAN_REQ_FILE) as f:
             for line in f:
                 package = line.strip()

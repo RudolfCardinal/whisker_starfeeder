@@ -17,6 +17,7 @@ import tempfile
 if sys.version_info[0] < 3:
     raise AssertionError("Need Python 3")
 
+PYTHON = sys.executable
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_BASE_DIR = os.path.abspath(os.path.join(CURRENT_DIR, os.pardir))
 DOC_DIR = os.path.join(PROJECT_BASE_DIR, 'doc')
@@ -55,7 +56,10 @@ Making documentation
         PDF=PDF,
     ))
     subprocess.call([
-        RST2HTML, '--stylesheet={}'.format(CSS), '--smart-quotes', 'yes', RST
+        PYTHON, RST2HTML,
+        '--stylesheet={}'.format(CSS),
+        '--smart-quotes', 'yes',
+        RST
     ], stdout=htmlfile)
     htmlfile.close()
     print("filename ", htmlfile.name)
