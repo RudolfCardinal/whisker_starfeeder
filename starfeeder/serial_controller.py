@@ -20,8 +20,6 @@
 from collections import deque, OrderedDict
 import datetime
 import logging
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 import platform
 
 from PySide.QtCore import (
@@ -34,9 +32,13 @@ from PySide.QtCore import (
 )
 import serial
 # pySerial 3: http://pyserial.readthedocs.org/en/latest/pyserial.html
+from whisker.qt import exit_on_exception, StatusMixin
 
 from starfeeder.constants import ThreadOwnerState
-from starfeeder.qt import exit_on_exception, StatusMixin
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
+
 
 CR = b'\r'
 CRLF = b'\r\n'
@@ -62,7 +64,7 @@ class SerialReader(QObject, StatusMixin):
 
     def __init__(self, name='?', parent=None, eol=LF):
         super().__init__(parent)
-        StatusMixin.__init__(self, name, logger)
+        StatusMixin.__init__(self, name, log)
         self.serial_port = None  # set later
         self.eol = eol
 
@@ -168,7 +170,7 @@ class SerialWriter(QObject, StatusMixin):
     def __init__(self, name='?', parent=None, eol=LF, encoding='utf8'):
         # ... UTF8 is ASCII for normal characters.
         super().__init__(parent)
-        StatusMixin.__init__(self, name, logger)
+        StatusMixin.__init__(self, name, log)
         self.serial_port = None  # set later
         self.eol = eol
         self.encoding = encoding
@@ -239,7 +241,7 @@ class SerialWriter(QObject, StatusMixin):
                 microsec = (t2 - t1).microseconds
                 self.debug(
                     "Sent {} bytes in {} microseconds ({} microseconds per "
-                    "byte)".format(nbytes, microsec, microsec/nbytes))
+                    "byte)".format(nbytes, microsec, microsec / nbytes))
         except Exception as e:
             self.error(str(e))
 
@@ -253,7 +255,7 @@ class SerialController(QObject, StatusMixin):
 
     def __init__(self, name, parent=None):
         super().__init__(parent)
-        StatusMixin.__init__(self, name, logger)
+        StatusMixin.__init__(self, name, log)
 
     @exit_on_exception
     def on_receive(self, data, timestamp):
@@ -313,7 +315,7 @@ class SerialOwner(QObject, StatusMixin):
             dsrdtr
         """
         super().__init__(parent)
-        StatusMixin.__init__(self, name, logger)
+        StatusMixin.__init__(self, name, log)
         self.callback_id = callback_id
         reader_kwargs = reader_kwargs or {}
         writer_kwargs = writer_kwargs or {}
@@ -494,11 +496,12 @@ class SerialOwner(QObject, StatusMixin):
         self.check_everything_finished()
 
     def check_everything_finished(self):
-        if (self.readerthread.isRunning()
-                or self.writerthread.isRunning()
-                or self.controllerthread.isRunning()):
+        if (self.readerthread.isRunning() or
+                self.writerthread.isRunning() or
+                self.controllerthread.isRunning()):
             return False
-        self.serial_port.close()  # for Windows
+        if self.serial_port:
+            self.serial_port.close()  # for Windows
         self.set_state(ThreadOwnerState.stopped)
         self.finished.emit()
         return True

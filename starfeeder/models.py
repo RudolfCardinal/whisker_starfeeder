@@ -19,15 +19,13 @@
 
 import datetime
 import logging
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 import serial
 
+import arrow
 from sqlalchemy import (
     BigInteger,
     Boolean,
     Column,
-    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -36,73 +34,28 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship
-
-from starfeeder.lang import (
-    OrderedNamespace,
+from whisker.sqlalchemy import (
+    ALEMBIC_NAMING_CONVENTION,
+    SqlAlchemyAttrDictMixin,
+    ArrowMicrosecondType,
+)
+from whisker.lang import (
     ordered_repr,
     simple_repr,
     trunc_if_integer,
 )
 
-# =============================================================================
-# Constants for Alembic
-# =============================================================================
-# https://alembic.readthedocs.org/en/latest/naming.html
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
-ALEMBIC_NAMING_CONVENTION = {
-    "ix": 'ix_%(column_0_label)s',
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    # "ck": "ck_%(table_name)s_%(constraint_name)s",  # too long?
-    # ... https://groups.google.com/forum/#!topic/sqlalchemy/SIT4D8S9dUg
-    "ck": "ck_%(table_name)s_%(column_0_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s"
-}
-MASTER_META = MetaData(naming_convention=ALEMBIC_NAMING_CONVENTION)
 
 # =============================================================================
-# Base
+# SQLAlchemy base.
 # =============================================================================
-# Now we declare our SQLAlchemy base.
 # Derived classes will share the specified metadata.
 
+MASTER_META = MetaData(naming_convention=ALEMBIC_NAMING_CONVENTION)
 Base = declarative_base(metadata=MASTER_META)
-
-
-# =============================================================================
-# Mixin to:
-# - get plain dictionary-like object (with attributes so we can use x.y rather
-#   than x['y']) from an SQLAlchemy ORM object
-# - make a nice repr() default, maintaining field order
-# =============================================================================
-
-class SqlAlchemyAttrDictMixin(object):
-    # See http://stackoverflow.com/questions/2537471
-    # but more: http://stackoverflow.com/questions/2441796
-    def get_attrdict(self):
-        """
-        Returns what looks like a plain object with the values of the
-        SQLAlchemy ORM object.
-        """
-        columns = self.__table__.columns.keys()
-        values = (getattr(self, x) for x in columns)
-        zipped = zip(columns, values)
-        return OrderedNamespace(zipped)
-
-    def __repr__(self):
-        return "<{classname}({kvp})>".format(
-            classname=type(self).__name__,
-            kvp=", ".join("{}={}".format(k, repr(v))
-                          for k, v in self.get_attrdict().items())
-        )
-
-    @classmethod
-    def from_attrdict(cls, attrdict):
-        """
-        Builds a new instance of the ORM object from values in an attrdict.
-        """
-        dictionary = attrdict.__dict__
-        return cls(**dictionary)
 
 
 # =============================================================================
@@ -202,8 +155,8 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     def __repr__(self):
         return ordered_repr(
             self,
-            ['id', 'master_config_id', 'name', 'enabled']
-            + self.fields_component_serial_port())
+            ['id', 'master_config_id', 'name', 'enabled'] +
+            self.fields_component_serial_port())
 
     def __str__(self):
         return "{}{}: {}".format(
@@ -251,7 +204,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     stability_n = Column(Integer)
     tolerance_kg = Column(Float)
     min_mass_kg = Column(Float)
-    unlock_mass_kg = Column(Float)  # ***
+    unlock_mass_kg = Column(Float)
     refload_mass_kg = Column(Float)
     zero_value = Column(Integer)
     refload_value = Column(Integer)
@@ -318,8 +271,8 @@ class MasterConfig(SqlAlchemyAttrDictMixin, Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
-    modified_at = Column(DateTime, default=datetime.datetime.utcnow,
-                         onupdate=datetime.datetime.utcnow)
+    modified_at = Column(ArrowMicrosecondType, default=arrow.now,
+                         onupdate=arrow.now)
     server = Column(String)
     port = Column(Integer)
     wcm_prefix = Column(String)
@@ -387,8 +340,8 @@ class RfidEventRecord(SqlAlchemyAttrDictMixin, Base):
     id = Column(Integer, primary_key=True)
     reader_id = Column(Integer, ForeignKey('rfidreader_config.id'))
     rfid = Column(BigInteger)
-    first_detected_at = Column(DateTime, default=datetime.datetime.utcnow)
-    last_detected_at = Column(DateTime, default=datetime.datetime.utcnow)
+    first_detected_at = Column(ArrowMicrosecondType, default=arrow.now)
+    last_detected_at = Column(ArrowMicrosecondType, default=arrow.now)
     n_events = Column(Integer, default=1)
 
     @classmethod
@@ -477,7 +430,7 @@ class MassEventRecord(SqlAlchemyAttrDictMixin, Base):
     reader_id = Column(Integer, ForeignKey('rfidreader_config.id'))
     balance_id = Column(Integer, ForeignKey('balance_config.id'))
     # When? (Default precision is microseconds, even on SQLite.)
-    at = Column(DateTime, default=datetime.datetime.utcnow)
+    at = Column(ArrowMicrosecondType, default=arrow.now)
     # ... avoid 'timestamp' as a column name; it's an SQL keyword (adds hassle)
     # How heavy?
     mass_kg = Column(Float)
@@ -496,19 +449,3 @@ class MassEventRecord(SqlAlchemyAttrDictMixin, Base):
         session.add(mass_identified_event)
         session.commit()  # ASAP to unlock database
         # return mass_identified_event.get_attrdict()
-
-"""
-from weigh.models import (
-    MassEventRecord,
-    RfidReaderConfig,
-    BalanceConfig,
-    MasterConfig,
-)
-from weigh.db import get_database_session_thread_scope
-session = get_database_session_thread_scope()  # NOT PART OF MAIN CODE!
-m = session.query(MassEventRecord).get(1)
-r = session.query(RfidReaderConfig).get(1)
-b1 = session.query(BalanceConfig).get(1)
-b2 = session.query(BalanceConfig).get(2)
-c = session.query(MasterConfig).get(1)
-"""

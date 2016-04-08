@@ -120,6 +120,7 @@ else:
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 ALEMBIC_CONFIG_FILENAME = os.path.join(CURRENT_DIR, 'alembic.ini')
+ALEMBIC_BASE_DIR = CURRENT_DIR
 MANUAL_FILENAME = os.path.join(CURRENT_DIR, 'manual.pdf')
 
 

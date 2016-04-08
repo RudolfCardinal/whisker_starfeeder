@@ -19,11 +19,9 @@
 
 import collections
 import logging
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 import platform
 
-from PySide.QtCore import Qt, Slot
+from PySide.QtCore import Qt, Signal, Slot
 from PySide.QtGui import (
     QApplication,
     QCheckBox,
@@ -32,7 +30,6 @@ from PySide.QtGui import (
     QDialogButtonBox,
     QFormLayout,
     QGridLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -47,10 +44,28 @@ from PySide.QtGui import (
 import serial
 from serial.tools.list_ports import comports
 from sqlalchemy.sql import exists
+from whisker.lang import launch_external_file, natural_keys
+from whisker.qt import (
+    exit_on_exception,
+    GenericListModel,
+    ModalEditListView,
+    RadioGroup,
+    StyledQGroupBox,
+    TransactionalEditDialogMixin,
+    ValidationError,
+)
+from whisker.qtclient import WhiskerOwner
+from whisker.sqlalchemy import (
+    database_is_sqlite,
+    session_thread_scope,
+    upgrade_database,
+)
 
 from starfeeder.balance import BalanceOwner
 from starfeeder.constants import (
     ABOUT,
+    ALEMBIC_BASE_DIR,
+    ALEMBIC_CONFIG_FILENAME,
     BALANCE_ASF_MINIMUM,
     BALANCE_ASF_MAXIMUM,
     DATABASE_ENV_VAR_NOT_SPECIFIED,
@@ -61,12 +76,6 @@ from starfeeder.constants import (
     WINDOW_TITLE,
     WRONG_DATABASE_VERSION_STUB,
 )
-from starfeeder.db import (
-    database_is_sqlite,
-    session_thread_scope,
-    upgrade_database,
-)
-from starfeeder.lang import launch_external_file, natural_keys
 from starfeeder.models import (
     BalanceConfig,
     MassEventRecord,
@@ -74,17 +83,12 @@ from starfeeder.models import (
     RfidEventRecord,
     RfidReaderConfig,
 )
-from starfeeder.qt import (
-    GenericListModel,
-    ModalEditListView,
-    RadioGroup,
-    TransactionalEditDialogMixin,
-    ValidationError,
-)
 from starfeeder.rfid import RfidOwner
-from starfeeder.qt import exit_on_exception
+from starfeeder.settings import get_database_settings
 from starfeeder.task import WeightWhiskerTask
-from starfeeder.whisker_qt import WhiskerOwner
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 # =============================================================================
@@ -109,53 +113,35 @@ RENAME_WARNING = (
     "RFID/mass data will refer to these entries by number (not name).</b>"
 )
 
-# =============================================================================
-# Styled elements
-# =============================================================================
-
-GROUPBOX_STYLESHEET = """
-QGroupBox {
-    border: 1px solid gray;
-    border-radius: 2px;
-    margin-top: 0.5em;
-    font-weight: bold;
-}
-
-QGroupBox::title {
-    subcontrol-origin: margin;
-    left: 10px;
-    padding: 0 2px 0 2px;
-}
-"""
-# http://stackoverflow.com/questions/14582591/border-of-qgroupbox
-# http://stackoverflow.com/questions/2730331/set-qgroupbox-title-font-size-with-style-sheets  # noqa
-
-
-class StyledQGroupBox(QGroupBox):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setStyleSheet(GROUPBOX_STYLESHEET)
-
 
 # =============================================================================
-# Main GUI window
+# Secondary GUI windows
 # =============================================================================
 
 class NoDatabaseSpecifiedWindow(QDialog):
+    exit_kill_log = Signal()
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle(WINDOW_TITLE)
         info = QLabel(DATABASE_ENV_VAR_NOT_SPECIFIED)
         ok_buttons = QDialogButtonBox(QDialogButtonBox.Ok,
                                       Qt.Horizontal, self)
+        ok_buttons.accepted.connect(self.exit_kill_log)
         ok_buttons.accepted.connect(self.accept)
         layout = QVBoxLayout()
         layout.addWidget(info)
         layout.addWidget(ok_buttons)
         self.setLayout(layout)
 
+    def closeEvent(self, event):
+        self.exit_kill_log.emit()
+        event.accept()
+
 
 class WrongDatabaseVersionWindow(QDialog):
+    exit_kill_log = Signal()
+
     def __init__(self, current_revision, head_revision):
         super().__init__()
         self.setWindowTitle(WINDOW_TITLE)
@@ -167,6 +153,7 @@ class WrongDatabaseVersionWindow(QDialog):
         upgrade_button.clicked.connect(self.upgrade_database)
         ok_buttons = QDialogButtonBox(QDialogButtonBox.Ok,
                                       Qt.Horizontal, self)
+        ok_buttons.accepted.connect(self.exit_kill_log)
         ok_buttons.accepted.connect(self.accept)
 
         layout_upgrade = QHBoxLayout()
@@ -181,13 +168,17 @@ class WrongDatabaseVersionWindow(QDialog):
     @Slot()
     def upgrade_database(self):
         try:
-            upgrade_database()
+            upgrade_database(ALEMBIC_CONFIG_FILENAME, ALEMBIC_BASE_DIR)
             QMessageBox.about(self, "Success",
                               "Successfully upgraded database.")
         except Exception as e:
             QMessageBox.about(
                 self, "Failure",
                 "Failed to upgrade database. Error was: {}".format(str(e)))
+
+    def closeEvent(self, event):
+        self.exit_kill_log.emit()
+        event.accept()
 
 
 # =============================================================================
@@ -198,6 +189,8 @@ class BaseWindow(QMainWindow):
     # Don't inherit from QDialog, which has an additional Escape-to-close
     # function that's harder to trap. Use QWidget or QMainWindow.
     NAME = "main"
+
+    exit_kill_log = Signal()
 
     def __init__(self):
         super().__init__()
@@ -210,6 +203,7 @@ class BaseWindow(QMainWindow):
         self.balance_list = []
         self.whisker_task = None
         self.whisker_owner = None
+        self.dbsettings = get_database_settings()
 
         # ---------------------------------------------------------------------
         # GUI
@@ -310,7 +304,7 @@ class BaseWindow(QMainWindow):
     def closeEvent(self, event):
         """Trap exit."""
         quit_msg = "Are you sure you want to exit?"
-        reply = QMessageBox.question(self, 'Really exit?',  quit_msg,
+        reply = QMessageBox.question(self, 'Really exit?', quit_msg,
                                      QMessageBox.Yes, QMessageBox.No)
         if reply != QMessageBox.Yes:
             event.ignore()
@@ -320,10 +314,11 @@ class BaseWindow(QMainWindow):
         # the GUI message loop. So we need to defer the call if subthreads are
         # running
         if not self.anything_running():
-            event.accept()
+            self.exit_kill_log.emit()
+            event.accept()  # actually quit
             return
         # Now stop everything
-        logger.warn("Waiting for threads to finish...")
+        log.warn("Waiting for threads to finish...")
         self.exit_pending = True
         for rfid in self.rfid_list:
             rfid.stop()
@@ -341,7 +336,7 @@ class BaseWindow(QMainWindow):
     @Slot()
     def configure(self):
         readonly = self.anything_running()
-        with session_thread_scope(readonly) as session:
+        with session_thread_scope(self.dbsettings, readonly) as session:
             config = MasterConfig.get_singleton(session)
             dialog = MasterConfigWindow(session, config, parent=self,
                                         readonly=readonly)
@@ -359,7 +354,7 @@ class BaseWindow(QMainWindow):
                               "Can't start: already running.")
             return
 
-        with session_thread_scope() as session:
+        with session_thread_scope(self.dbsettings) as session:
             config = MasterConfig.get_singleton(session)
             # Continue to hold the session beyond this.
             # http://stackoverflow.com/questions/13904735/sqlalchemy-how-to-use-an-instance-in-sqlalchemy-after-session-close  # noqa
@@ -394,7 +389,7 @@ class BaseWindow(QMainWindow):
             for i, rfid_config in enumerate(config.rfidreader_configs):
                 if not rfid_config.enabled:
                     continue
-                rfid = RfidOwner(rfid_config, parent=self)
+                rfid = RfidOwner(rfid_config, callback_id=i, parent=self)
                 rfid.status_sent.connect(self.on_status)
                 rfid.error_sent.connect(self.on_status)
                 rfid.finished.connect(self.something_finished)
@@ -421,6 +416,7 @@ class BaseWindow(QMainWindow):
                 balance = BalanceOwner(
                     balance_config,
                     rfid_effective_time_s=config.rfid_effective_time_s,
+                    callback_id=i,
                     parent=self)
                 balance.status_sent.connect(self.on_status)
                 balance.error_sent.connect(self.on_status)
@@ -472,20 +468,21 @@ class BaseWindow(QMainWindow):
     @Slot()
     def something_finished(self):
         if self.anything_running():
-            logger.debug("... thread finished, but others are still running")
+            log.debug("... thread finished, but others are still running")
             return
         self.status("All tasks and threads stopped")
         if self.exit_pending:
+            self.exit_kill_log.emit()
             QApplication.quit()
         self.set_button_states()
 
     def anything_running(self):
         """Returns a bool."""
         return (
-            any(r.is_running() for r in self.rfid_list)
-            or any(b.is_running() for b in self.balance_list)
-            or (self.whisker_owner is not None
-                and self.whisker_owner.is_running())
+            any(r.is_running() for r in self.rfid_list) or
+            any(b.is_running() for b in self.balance_list) or
+            (self.whisker_owner is not None and
+                self.whisker_owner.is_running())
         )
 
     # -------------------------------------------------------------------------
@@ -544,14 +541,14 @@ class BaseWindow(QMainWindow):
     def on_calibrated(self, calibration_report):
         msg = str(calibration_report)
         self.status(msg)
-        logger.info(msg)
-        with session_thread_scope() as session:
+        log.info(msg)
+        with session_thread_scope(self.dbsettings) as session:
             balance_config = session.query(BalanceConfig).get(
                 calibration_report.balance_id)
-            logger.debug("WAS: {}".format(repr(balance_config)))
+            log.debug("WAS: {}".format(repr(balance_config)))
             balance_config.zero_value = calibration_report.zero_value
             balance_config.refload_value = calibration_report.refload_value
-            logger.debug("NOW: {}".format(repr(balance_config)))
+            log.debug("NOW: {}".format(repr(balance_config)))
             session.commit()
 
     # -------------------------------------------------------------------------
@@ -747,18 +744,16 @@ class BaseWindow(QMainWindow):
         self.whisker_label_status.setText("Disconnected")
 
     @exit_on_exception
-    def on_rfid_state(self, reader_id, state):
-        rfid_index = self.rfid_id_to_idx[reader_id]
-        self.rfid_labels_status[rfid_index].setText(state)
+    def on_rfid_state(self, reader_index, state):
+        self.rfid_labels_status[reader_index].setText(state)
 
     @exit_on_exception
-    def on_balance_state(self, balance_id, state):
-        balance_index = self.balance_id_to_idx[balance_id]
+    def on_balance_state(self, balance_index, state):
         self.balance_labels_status[balance_index].setText(state)
 
     def set_button_states(self):
         running = self.anything_running()
-        sqlite = database_is_sqlite()
+        sqlite = database_is_sqlite(self.dbsettings)
         self.configure_button.setText(
             'View configuration' if running and not sqlite else '&Configure')
         self.configure_button.setEnabled(not running or not sqlite)
@@ -775,9 +770,9 @@ class BaseWindow(QMainWindow):
 # =============================================================================
 
 class RfidKeepCheckListModel(GenericListModel):
-    def item_deletable(self, rowindex, session):
+    def item_deletable(self, rowindex):
         return not (
-            session.query(
+            self.session.query(
                 exists().where(RfidEventRecord.reader_id ==
                                self.listdata[rowindex].id)
             ).scalar()
@@ -785,9 +780,9 @@ class RfidKeepCheckListModel(GenericListModel):
 
 
 class BalanceKeepCheckListModel(GenericListModel):
-    def item_deletable(self, rowindex, session):
+    def item_deletable(self, rowindex):
         return not (
-            session.query(
+            self.session.query(
                 exists().where(MassEventRecord.balance_id ==
                                self.listdata[rowindex].id)
             ).scalar()
@@ -892,9 +887,11 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         self.server_edit.setText(obj.server)
         self.port_edit.setText(str(obj.port or ''))
         self.wcm_prefix_edit.setText(obj.wcm_prefix)
-        rfid_lm = RfidKeepCheckListModel(obj.rfidreader_configs, self)
+        rfid_lm = RfidKeepCheckListModel(obj.rfidreader_configs,
+                                         self.session, self)
         self.rfid_lv.setModel(rfid_lm)
-        balance_lm = BalanceKeepCheckListModel(obj.balance_configs, self)
+        balance_lm = BalanceKeepCheckListModel(obj.balance_configs,
+                                               self.session, self)
         self.balance_lv.setModel(balance_lm)
 
     def dialog_to_object(self, obj):
@@ -922,8 +919,8 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         # Duplicate device ports, or names?
         # ---------------------------------------------------------------------
         name_port_pairs = (
-            [(r.name, r.port) for r in obj.rfidreader_configs]
-            + [(b.name, b.port) for b in obj.balance_configs]
+            [(r.name, r.port) for r in obj.rfidreader_configs] +
+            [(b.name, b.port) for b in obj.balance_configs]
         )
         names = [x[0] for x in name_port_pairs]
         duplicate_names = [

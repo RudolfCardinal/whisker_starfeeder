@@ -131,3 +131,18 @@ v0.1.3 (2015-12-26)
     fault on exit; https://bugreports.qt.io/browse/PYSIDE-88).
 -   Launch PDF manual as help.
 -   Retested with hardware on Windows XP and Linux.
+
+v0.1.4 (2015-12-26)
+
+-   callback_id set by GUI, not by derived classes of SerialOwner
+
+v0.1.5 (2016-02-27)
+
+-   bugfix to BaseWindow.on_rfid_state()
+
+v0.2.0 (2016-04-07)
+
+-   GUI log window, for PyInstaller environments.
+-   Uses Whisker Python library.
+-   Switch to Arrow datetimes internally.
+-   Bugfix in error handling when trying to open non-existent serial ports.

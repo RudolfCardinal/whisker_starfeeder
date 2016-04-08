@@ -21,6 +21,7 @@ import re
 
 import bitstring
 from PySide.QtCore import QTimer, Signal
+from whisker.qt import exit_on_exception
 
 from starfeeder.serial_controller import (
     # CR,
@@ -31,7 +32,6 @@ from starfeeder.serial_controller import (
     SerialOwner,
 )
 from starfeeder.models import RfidEvent
-from starfeeder.qt import exit_on_exception
 
 CMD_RESET_1 = "x"  # response: "MULTITAG-125 01" (+/- "S" as a separate line)
 CMD_RESET_2 = "z"  # response: "MULTITAG-125 01"
@@ -227,12 +227,12 @@ class RfidOwner(SerialOwner):
     # Inwards, to posessions:
     reset_requested = Signal()
 
-    def __init__(self, rfid_config, parent=None):
+    def __init__(self, rfid_config, callback_id, parent=None):
         # Do not keep a copy of rfid_config; it will expire.
         super().__init__(
             serial_args=rfid_config.get_serial_args(),
             parent=parent,
-            callback_id=rfid_config.id,
+            callback_id=callback_id,
             name=rfid_config.name,
             rx_eol=CRLF,
             tx_eol=NO_BYTES,

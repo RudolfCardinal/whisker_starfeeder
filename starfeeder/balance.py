@@ -2,16 +2,6 @@
 # starfeeder/balance.py
 
 """
-Reference is [4].
-Summary of commands on p14.
-
-The balance doesn't have any concept of real-world mass, it seems.
-So it needs calibrating.
-We should NOT use the tare function, since the tare zero point is lost through
-a reset. Instead, let's store it in the database.
-"""
-
-"""
     Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
 
     Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,22 +15,33 @@ a reset. Instead, let's store it in the database.
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
+
+NOTES:
+Reference is [4].
+Summary of commands on p14.
+
+The balance doesn't have any concept of real-world mass, it seems.
+So it needs calibrating.
+We should NOT use the tare function, since the tare zero point is lost through
+a reset. Instead, let's store it in the database.
 """
 
 import datetime
 import math
 import re
 
+import arrow
 import bitstring
 from PySide.QtCore import Signal
 import serial
+from whisker.lang import CompiledRegexMemory
+from whisker.qt import exit_on_exception
 
 from starfeeder.constants import (
     BALANCE_ASF_MINIMUM,
     BALANCE_ASF_MAXIMUM,
     GUI_MASS_FORMAT,
 )
-from starfeeder.lang import CompiledRegexMemory
 from starfeeder.models import CalibrationReport, MassEvent, RfidEvent
 from starfeeder.serial_controller import (
     # CR,
@@ -49,7 +50,6 @@ from starfeeder.serial_controller import (
     SerialController,
     SerialOwner,
 )
-from starfeeder.qt import exit_on_exception
 
 # Startup sequence
 CMD_NO_OP = ""  # p12: a termination character on its own clears the buffer
@@ -123,7 +123,7 @@ class BalanceController(SerialController):
         self.command_queue = []
         self.n_pending_measurements = 0
         self.rfid_event_rfid = None
-        self.rfid_event_expires = datetime.datetime.utcnow()
+        self.rfid_event_expires = arrow.now()
         self.max_value = 100000  # default (NOV command) is 100,000
         self.recent_measurements_kg = []
         self.pending_calibrate = False
@@ -194,7 +194,7 @@ class BalanceController(SerialController):
 
     def read_until(self, when_to_read_until):
         self.rfid_event_expires = when_to_read_until
-        now = datetime.datetime.utcnow()
+        now = arrow.now()
         if self.balance_config.read_continuously:
             return  # already measuring
         if self.n_pending_measurements == 0 and now < self.rfid_event_expires:
@@ -272,8 +272,8 @@ class BalanceController(SerialController):
             return
         self.debug("BALANCE VALUE: {} => {} kg".format(
             value, GUI_MASS_FORMAT % mass_kg))
-        while (len(self.recent_measurements_kg)
-                >= self.balance_config.stability_n):
+        while (len(self.recent_measurements_kg) >=
+                self.balance_config.stability_n):
             self.recent_measurements_kg.pop(0)
         self.recent_measurements_kg.append(mass_kg)
         rfid_valid = timestamp < self.rfid_event_expires
@@ -372,14 +372,14 @@ class BalanceController(SerialController):
             self.n_pending_measurements -= 1
             self.debug("n_pending_measurements: {}".format(
                 self.n_pending_measurements))
-            if (self.n_pending_measurements == 0 and (
-                    self.balance_config.read_continuously
-                    or self.locked
-                    or timestamp < self.rfid_event_expires)):
+            if (self.n_pending_measurements == 0 and
+                    (self.balance_config.read_continuously or
+                        self.locked or
+                        timestamp < self.rfid_event_expires)):
                 self.debug("Finished measuring; restarting")
                 self.start_measuring()
-        elif (cmd in [CMD_QUERY_BAUD_RATE, CMD_SET_BAUD_RATE]
-                and gre.match(BAUDRATE_REGEX, data)):
+        elif (cmd in [CMD_QUERY_BAUD_RATE, CMD_SET_BAUD_RATE] and
+                gre.match(BAUDRATE_REGEX, data)):
             baudrate = int(gre.group(1))
             parity_code = int(gre.group(2))
             if parity_code == 1:
@@ -390,15 +390,16 @@ class BalanceController(SerialController):
                 parity = '?'
             self.status("Balance is using {} bps, parity {}".format(baudrate,
                                                                     parity))
-        elif data == RESPONSE_NONSPECIFIC_OK and cmd in [
-                CMD_ASCII_RESULT_OUTPUT,
-                CMD_DATA_DELIMITER_COMMA_CR_LF,
-                CMD_FILTER_TYPE,
-                CMD_MEASUREMENT_RATE,
-                CMD_SET_BAUD_RATE,
-                CMD_SET_FILTER,
-                CMD_TARE,
-                ]:
+        elif (data == RESPONSE_NONSPECIFIC_OK and
+                cmd in [
+                    CMD_ASCII_RESULT_OUTPUT,
+                    CMD_DATA_DELIMITER_COMMA_CR_LF,
+                    CMD_FILTER_TYPE,
+                    CMD_MEASUREMENT_RATE,
+                    CMD_SET_BAUD_RATE,
+                    CMD_SET_FILTER,
+                    CMD_TARE,
+                ]):
             self.status("Balance acknowledges command {}".format(cmd))
         elif cmd == CMD_QUERY_STATUS:
             self.status("Balance status: {}".format(data))
@@ -435,12 +436,13 @@ class BalanceOwner(SerialOwner):
     calibration_requested = Signal()
     on_rfid = Signal(RfidEvent)
 
-    def __init__(self, balance_config, rfid_effective_time_s, parent=None):
+    def __init__(self, balance_config, rfid_effective_time_s,
+                 callback_id, parent=None):
         # Do not keep a copy of balance_config; it will expire.
         super().__init__(
             serial_args=balance_config.get_serial_args(),
             parent=parent,
-            callback_id=balance_config.id,
+            callback_id=callback_id,
             name=balance_config.name,
             rx_eol=CRLF,
             tx_eol=b";",

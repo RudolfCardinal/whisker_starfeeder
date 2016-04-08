@@ -64,9 +64,9 @@ if __name__ == '__main__':
 
     title("Building new distribution...")
     subprocess.check_call(
-        ['pyinstaller', '--clean', '--log-level=INFO']
-        + PYINSTALLER_EXTRA_OPTIONS
-        + [SPECFILE]
+        ['pyinstaller', '--clean', '--log-level=INFO'] +
+        PYINSTALLER_EXTRA_OPTIONS +
+        [SPECFILE]
     )
 
     title("Zipping to {}...".format(ZIPFILEBASE))

@@ -17,32 +17,31 @@
     limitations under the License.
 """
 
-from alembic import context
-from sqlalchemy import engine_from_config, pool
 import logging
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 # import os
 # import sys
 
+from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 from starfeeder.constants import LOG_FORMAT, LOG_DATEFMT
+from starfeeder.models import Base
+from starfeeder.settings import get_database_settings
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 logging.basicConfig(format=LOG_FORMAT, datefmt=LOG_DATEFMT,
                     level=logging.DEBUG)
-
-config = context.config
 
 # current_dir = os.path.dirname(os.path.abspath(__file__))
 # project_dir = os.path.abspath(os.path.join(current_dir,
 #                                            os.pardir, os.pardir))
-# logger.info("Adding to PYTHONPATH: {}".format(project_dir))
+# log.info("Adding to PYTHONPATH: {}".format(project_dir))
 # sys.path.append(project_dir)
-# logger.debug("sys.path: {}".format(sys.path))
+# log.debug("sys.path: {}".format(sys.path))
 
-from starfeeder.models import Base
+config = context.config
 target_metadata = Base.metadata
-
-from starfeeder.settings import get_database_settings
 settings = get_database_settings()
 config.set_main_option('sqlalchemy.url', settings['url'])
 

@@ -708,6 +708,10 @@ Windows installation
 
     SO ALL EXECUTABLE PYTHON FILES SHOULD USE "#!/usr/bin/env python"
 
+- Note that the Windows launcher does respect "#!/usr/bin/env python3" and
+  call Python 3 outside a venv. I'm not sure whether it sticks to the venv,
+  though...
+
 - When a serial port appears to be in use:
 
     https://technet.microsoft.com/en-us/sysinternals/processexplorer

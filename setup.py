@@ -94,13 +94,17 @@ setup(
         # Standard PyPI packages
         # ---------------------------------------------------------------------
         'alembic==0.8.3',  # migration tool for sqlalchemy
-        'bitstring==3.1.3',  # manipulation of binary numbers
+        'arrow',  # better datetime
+        'attrdict',  # dictionaries with attribute-style access
+        'bitstring==3.1.4',  # manipulation of binary numbers
         'PySide==1.2.4',  # Python interface to Qt
+        'pyserial==3.0.1',  # serial port library
         'SQLAlchemy==1.0.9',  # database ORM
+        'whisker>=0.3.2',  # Whisker client library
         # ---------------------------------------------------------------------
         # Specials: development versions
         # ---------------------------------------------------------------------
-        'pyserial==3.0b1',
+        # 'pyserial==3.0b1',
     ],
     dependency_links=[
         # We browse at https://github.com/pyserial/pyserial
@@ -119,7 +123,7 @@ setup(
         # We label it with "#egg=pyserial-3.0b1" for setup.py's benefit
         #   http://stackoverflow.com/questions/3472430
 
-        'http://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065da732#egg=pyserial-3.0b1',  # noqa
+        # 'http://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065da732#egg=pyserial-3.0b1',  # noqa
     ],
     # YOU MUST ALSO USE THE "--process-dependency-links" FLAG.
 

@@ -18,19 +18,22 @@
 """
 
 import logging
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
-from starfeeder.db import session_thread_scope
-# from starfeeder.debug_qt import debug_object
+# from whisker.debug_qt import debug_object
+from whisker.sqlalchemy import session_thread_scope
+from whisker.qt import exit_on_exception
+from whisker.qtclient import WhiskerTask
+
 from starfeeder.models import (
     MassEventRecord,
     MasterConfig,
     RfidEventRecord,
 )
-from starfeeder.qt import exit_on_exception
+from starfeeder.settings import get_database_settings
 from starfeeder.version import VERSION
-from starfeeder.whisker_qt import WhiskerTask
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class WeightWhiskerTask(WhiskerTask):
@@ -40,9 +43,10 @@ class WeightWhiskerTask(WhiskerTask):
                  **kwargs):
         super().__init__(parent=parent, name=name)
         self.wcm_prefix = wcm_prefix
+        self.dbsettings = get_database_settings()
 
     def start(self):
-        with session_thread_scope() as session:
+        with session_thread_scope(self.dbsettings) as session:
             config = MasterConfig.get_singleton(session)
             self.rfid_effective_time_s = config.rfid_effective_time_s
 
@@ -76,7 +80,7 @@ class WeightWhiskerTask(WhiskerTask):
 
         Don't hold the session too long, on general principles.
         """
-        with session_thread_scope() as session:
+        with session_thread_scope(self.dbsettings) as session:
             RfidEventRecord.record_rfid_detection(
                 session, rfid_event, self.rfid_effective_time_s)
         # self.status("RFID received: {}".format(rfid_event))
@@ -99,7 +103,7 @@ class WeightWhiskerTask(WhiskerTask):
         """
         if not mass_event.locked or mass_event.rfid is None:
             return
-        with session_thread_scope() as session:
+        with session_thread_scope(self.dbsettings) as session:
             MassEventRecord.record_mass_detection(session, mass_event)
         if self.whisker.is_connected():
             self.broadcast(

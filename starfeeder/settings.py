@@ -39,3 +39,18 @@ def get_database_settings():
     # http://docs.sqlalchemy.org/en/latest/core/engines.html
     # http://stackoverflow.com/questions/15065037
     # http://beets.radbox.org/blog/sqlite-nightmare.html
+
+
+def get_database_url():
+    settings = get_database_settings()
+    return settings['url']
+
+
+def set_database_url(url):
+    global dbsettings
+    dbsettings['url'] = url
+
+
+def set_database_echo(echo):
+    global dbsettings
+    dbsettings['echo'] = echo
