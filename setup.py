@@ -40,7 +40,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 # setup args
 # -----------------------------------------------------------------------------
 setup(
-    name='starfeeder',
+    name='whisker_starfeeder',
 
     version=VERSION,
 

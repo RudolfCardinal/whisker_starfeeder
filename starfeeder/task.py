@@ -55,7 +55,7 @@ class WeightWhiskerTask(WhiskerTask):
         # self.debug("DERIVED on_connect")
         # debug_object(self)
         # self.whisker.command("TimerSetEvent 2000 5 bop")
-        self.whisker.command("ReportName Starfeeder {}".format(VERSION))
+        self.whisker.report_name("Starfeeder {}".format(VERSION))
 
     @exit_on_exception
     def on_event(self, event, timestamp, whisker_timestamp_ms):
