@@ -153,6 +153,7 @@ def main():
     # But from now on, we can trap anything and see it in the GUI log, if
     # enabled, even if we have no console.
 
+    # noinspection PyBroadException
     try:
 
         # ---------------------------------------------------------------------
@@ -186,6 +187,7 @@ def main():
             if args.gui:
                 win = NoDatabaseSpecifiedWindow()
                 if args.guilog:
+                    # noinspection PyUnboundLocalVariable
                     win.exit_kill_log.connect(log_window.exit)
                 return run_gui(qt_app, win)
             raise ValueError(DATABASE_ENV_VAR_NOT_SPECIFIED)
@@ -206,6 +208,7 @@ def main():
                 win = WrongDatabaseVersionWindow(current_revision,
                                                  head_revision)
                 if args.guilog:
+                    # noinspection PyUnboundLocalVariable
                     win.exit_kill_log.connect(log_window.exit)
                 return run_gui(qt_app, win)
             raise ValueError(WRONG_DATABASE_VERSION_STUB.format(
@@ -217,6 +220,7 @@ def main():
         # ---------------------------------------------------------------------
         win = BaseWindow()
         if args.guilog:
+            # noinspection PyUnboundLocalVariable
             win.exit_kill_log.connect(log_window.exit)
         return run_gui(qt_app, win)
 
@@ -234,6 +238,7 @@ def main():
 # =============================================================================
 
 if __name__ == '__main__':
+    # noinspection PyBroadException
     try:
         sys.exit(main())
     except Exception as e:

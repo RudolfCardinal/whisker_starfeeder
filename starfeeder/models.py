@@ -90,7 +90,8 @@ class SerialPortConfigMixin(object):
         self.rtscts = rtscts
         self.dsrdtr = dsrdtr
 
-    def fields_component_serial_port(self):
+    @staticmethod
+    def fields_component_serial_port():
         return ['port', 'bytesize', 'parity', 'stopbits',
                 'xonxoff', 'rtscts', 'dsrdtr']
 
@@ -164,6 +165,7 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
             self.name or "[no name]",
             self.str_component_serial_port())
 
+    # noinspection PyShadowingBuiltins
     @classmethod
     def get_name_from_id(cls, session, id):
         obj = session.query(cls).get(id)
@@ -254,6 +256,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
             self.name or "[no name]",
             self.str_component_serial_port())
 
+    # noinspection PyShadowingBuiltins
     @classmethod
     def get_name_from_id(cls, session, id):
         obj = session.query(cls).get(id)
@@ -439,6 +442,7 @@ class MassEventRecord(SqlAlchemyAttrDictMixin, Base):
     def record_mass_detection(cls, session, mass_single_event):
         """Returns an OrderedNamespace object, not an SQLAlchemy ORM object."""
         balance_id = mass_single_event.balance_id
+        # noinspection PyArgumentList
         mass_identified_event = MassEventRecord(
             rfid=mass_single_event.rfid,
             reader_id=mass_single_event.reader_id,

@@ -179,6 +179,7 @@ class SerialWriter(QObject, StatusMixin):
         # "Timers cannot be started from another thread"
         # (under Windows; Linux Qt seems not to care), unless you manually
         # move the timer with a moveToThread() override (which is silly).
+        # noinspection PyUnresolvedReferences
         self.callback_timer.timeout.connect(self.process_queue)
         self.queue = deque()  # contains (data, delay_ms) tuples
         # ... left end = next one to be sent; right = most recent request
@@ -238,6 +239,7 @@ class SerialWriter(QObject, StatusMixin):
             if DEBUG_WRITE_TIMING:
                 t2 = datetime.datetime.utcnow()
                 nbytes = len(outdata)
+                # noinspection PyUnboundLocalVariable
                 microsec = (t2 - t1).microseconds
                 self.debug(
                     "Sent {} bytes in {} microseconds ({} microseconds per "
@@ -298,6 +300,7 @@ class SerialOwner(QObject, StatusMixin):
     controller_stop_requested = Signal()
     status_requested = Signal()
 
+    # noinspection PyUnresolvedReferences
     def __init__(self, serial_args, parent=None, rx_eol=LF, tx_eol=LF,
                  callback_id=None, name='?', encoding='utf8',
                  reader_class=SerialReader, reader_kwargs=None,

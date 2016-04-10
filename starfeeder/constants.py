@@ -114,6 +114,7 @@ Database revision should be {head_revision} but is {current_revision}.
 if getattr(sys, 'frozen', False):
     # Running inside a PyInstaller bundle.
     # http://pythonhosted.org/PyInstaller/#run-time-operation
+    # noinspection PyProtectedMember,PyUnresolvedReferences
     CURRENT_DIR = sys._MEIPASS
 else:
     # Running in a normal Python environment.

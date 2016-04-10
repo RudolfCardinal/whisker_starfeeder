@@ -180,14 +180,17 @@ class BalanceController(SerialController):
             self.warning("Bad ASF mode ignored: {}".format(asf))
         else:
             self.send(CMD_SET_FILTER, asf)
+        # noinspection PyTypeChecker
         self.send(CMD_FILTER_TYPE,
                   1 if self.balance_config.fast_response_filter else 0)
+        # noinspection PyTypeChecker
         self.send(CMD_MEASUREMENT_RATE, RATE_MAP_HZ_TO_CODE.get(
             self.balance_config.measurement_rate_hz))
         self.start_measuring()
 
     def start_measuring(self):
         self.n_pending_measurements += self.measurements_per_batch
+        # noinspection PyTypeChecker
         self.send(CMD_QUERY_MEASURE, self.measurements_per_batch)
         self.command_queue.extend(
             [CMD_QUERY_MEASURE] * (self.measurements_per_batch - 1))
@@ -252,7 +255,7 @@ class BalanceController(SerialController):
             return None
         return m * (value - z) / (r - z)
 
-    def is_stable(self, mass_kg):
+    def is_stable(self):
         # Do we have a stable mass?
         if len(self.recent_measurements_kg) < self.balance_config.stability_n:
             # ... not enough measurements to judge
@@ -279,7 +282,7 @@ class BalanceController(SerialController):
         rfid_valid = timestamp < self.rfid_event_expires
         rfid = self.rfid_event_rfid if rfid_valid else None
         identified = rfid is not None
-        stable = self.is_stable(mass_kg)
+        stable = self.is_stable()
         stable_high = stable and mass_kg >= self.balance_config.min_mass_kg
         stable_low = stable and mass_kg <= self.balance_config.unlock_mass_kg
         lock_now = stable_high and identified and not self.locked
@@ -403,6 +406,7 @@ class BalanceController(SerialController):
             self.status("Balance acknowledges command {}".format(cmd))
         elif cmd == CMD_QUERY_STATUS:
             self.status("Balance status: {}".format(data))
+            # noinspection PyBroadException
             try:
                 bits = bitstring.BitStream(uint=int(data), length=6)
                 command_error, execution_error, hardware_error = (

@@ -121,6 +121,7 @@ RENAME_WARNING = (
 class NoDatabaseSpecifiedWindow(QDialog):
     exit_kill_log = Signal()
 
+    # noinspection PyUnresolvedReferences
     def __init__(self):
         super().__init__()
         self.setWindowTitle(WINDOW_TITLE)
@@ -142,6 +143,7 @@ class NoDatabaseSpecifiedWindow(QDialog):
 class WrongDatabaseVersionWindow(QDialog):
     exit_kill_log = Signal()
 
+    # noinspection PyUnresolvedReferences
     def __init__(self, current_revision, head_revision):
         super().__init__()
         self.setWindowTitle(WINDOW_TITLE)
@@ -169,9 +171,11 @@ class WrongDatabaseVersionWindow(QDialog):
     def upgrade_database(self):
         try:
             upgrade_database(ALEMBIC_CONFIG_FILENAME, ALEMBIC_BASE_DIR)
+            # noinspection PyCallByClass
             QMessageBox.about(self, "Success",
                               "Successfully upgraded database.")
         except Exception as e:
+            # noinspection PyCallByClass
             QMessageBox.about(
                 self, "Failure",
                 "Failed to upgrade database. Error was: {}".format(str(e)))
@@ -192,6 +196,7 @@ class BaseWindow(QMainWindow):
 
     exit_kill_log = Signal()
 
+    # noinspection PyUnresolvedReferences
     def __init__(self):
         super().__init__()
         self.exit_pending = False
@@ -297,6 +302,28 @@ class BaseWindow(QMainWindow):
 
         self.set_button_states()
 
+        self.rfid_list = []
+        self.rfid_id_to_obj = {}
+        self.rfid_id_to_idx = {}
+        self.balance_list = []
+        self.balance_id_to_obj = {}
+        self.balance_id_to_idx = {}
+        self.balance_labels_status = []
+        self.balance_labels_raw_mass = []
+        self.balance_labels_raw_mass_at = []
+        self.balance_labels_stable_mass = []
+        self.balance_labels_stable_mass_at = []
+        self.balance_labels_idmass = []
+        self.balance_labels_rfid = []
+        self.balance_labels_idmass_at = []
+        self.rfid_labels_status = []
+        self.rfid_labels_rfid = []
+        self.rfid_labels_at = []
+
+        self.whisker_label_server = QLabel("-")
+        self.whisker_label_port = QLabel("-")
+        self.whisker_label_status = QLabel("-")
+
     # -------------------------------------------------------------------------
     # Exiting
     # -------------------------------------------------------------------------
@@ -304,6 +331,7 @@ class BaseWindow(QMainWindow):
     def closeEvent(self, event):
         """Trap exit."""
         quit_msg = "Are you sure you want to exit?"
+        # noinspection PyCallByClass
         reply = QMessageBox.question(self, 'Really exit?', quit_msg,
                                      QMessageBox.Yes, QMessageBox.No)
         if reply != QMessageBox.Yes:
@@ -350,6 +378,7 @@ class BaseWindow(QMainWindow):
     @Slot()
     def start(self):
         if self.anything_running():
+            # noinspection PyCallByClass
             QMessageBox.about(self, "Can't start",
                               "Can't start: already running.")
             return
@@ -453,6 +482,7 @@ class BaseWindow(QMainWindow):
     @Slot()
     def stop(self):
         if not self.anything_running():
+            # noinspection PyCallByClass
             QMessageBox.about(self, "Can't stop",
                               "Nothing to stop: not running.")
             return
@@ -473,6 +503,7 @@ class BaseWindow(QMainWindow):
         self.status("All tasks and threads stopped")
         if self.exit_pending:
             self.exit_kill_log.emit()
+            # noinspection PyArgumentList
             QApplication.quit()
         self.set_button_states()
 
@@ -526,6 +557,7 @@ class BaseWindow(QMainWindow):
 
     @Slot()
     def about(self):
+        # noinspection PyCallByClass
         QMessageBox.about(self, "Starfeeder", ABOUT)
 
     @Slot()
@@ -587,7 +619,7 @@ class BaseWindow(QMainWindow):
     # More GUI
     # -------------------------------------------------------------------------
 
-    def lay_out_status(self, config=None):
+    def lay_out_status(self):
         # Since we want to remove and add items, the simplest thing isn't to
         # own the grid layout and remove/add widgets, but to own the Group
         # within which the layout sits, and assign a new layout (presumably
@@ -697,12 +729,12 @@ class BaseWindow(QMainWindow):
                                       0, 0, ALIGNMENT)
         whisker_status_grid.addWidget(QLabel("<b>Port</b>"), 0, 1, ALIGNMENT)
         whisker_status_grid.addWidget(QLabel("<b>Status</b>"), 0, 2, ALIGNMENT)
-        self.whisker_label_server = QLabel("-")
+        self.whisker_label_server.setText("-")
+        self.whisker_label_port.setText("-")
+        self.whisker_label_status.setText("-")
         whisker_status_grid.addWidget(self.whisker_label_server,
                                       1, 0, ALIGNMENT)
-        self.whisker_label_port = QLabel("-")
         whisker_status_grid.addWidget(self.whisker_label_port, 1, 1, ALIGNMENT)
-        self.whisker_label_status = QLabel("-")
         whisker_status_grid.addWidget(self.whisker_label_status,
                                       1, 2, ALIGNMENT)
 
@@ -797,6 +829,8 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
     """
     Edits a MasterConfig object.
     """
+
+    # noinspection PyUnresolvedReferences
     def __init__(self, session, config, parent=None, readonly=False):
         super().__init__(parent)  # QDialog
 
@@ -1466,6 +1500,7 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
 # =============================================================================
 
 class CalibrateBalancesWindow(QDialog):
+    # noinspection PyUnresolvedReferences
     def __init__(self, balance_owners, parent=None):
         super().__init__(parent)  # QDialog
         self.setWindowTitle("Calibrate balances")

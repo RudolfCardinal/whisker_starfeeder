@@ -100,7 +100,7 @@ setup(
         'PySide==1.2.4',  # Python interface to Qt
         'pyserial==3.0.1',  # serial port library
         'SQLAlchemy==1.0.9',  # database ORM
-        'whisker>=0.3.2',  # Whisker client library
+        'whisker>=0.3.3',  # Whisker client library
         # ---------------------------------------------------------------------
         # Specials: development versions
         # ---------------------------------------------------------------------

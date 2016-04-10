@@ -39,11 +39,11 @@ log.addHandler(logging.NullHandler())
 class WeightWhiskerTask(WhiskerTask):
     """Doesn't define an end, deliberately."""
 
-    def __init__(self, wcm_prefix="", parent=None, name="whisker_task",
-                 **kwargs):
+    def __init__(self, wcm_prefix="", parent=None, name="whisker_task"):
         super().__init__(parent=parent, name=name)
         self.wcm_prefix = wcm_prefix
         self.dbsettings = get_database_settings()
+        self.rfid_effective_time_s = None
 
     def start(self):
         with session_thread_scope(self.dbsettings) as session:

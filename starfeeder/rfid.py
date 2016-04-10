@@ -141,6 +141,7 @@ class RfidController(SerialController):
         self.balance_config = balance_config
         self.swallow_next_stopped_read = False
         self.reset_timer = QTimer(self)
+        # noinspection PyUnresolvedReferences
         self.reset_timer.timeout.connect(self.reset_2)
 
     @exit_on_exception

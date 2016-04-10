@@ -21,21 +21,23 @@ import os
 
 from starfeeder.constants import DB_URL_ENV_VAR
 
+dbsettings = {
+    # three slashes for a relative path
+    'url': '?',
+    # 'echo': True,
+    'echo': False,
+    'connect_args': {
+        # 'timeout': 15,
+    },
+}
+
 
 def get_database_settings():
     if DB_URL_ENV_VAR not in os.environ:
         raise ValueError(
             "Environment variable {} not specified".format(DB_URL_ENV_VAR))
-    return {
-        # three slashes for a relative path
-        'url': os.environ[DB_URL_ENV_VAR],
-        # 'echo': True,
-        'echo': False,
-        'connect_args': {
-            # 'timeout': 15,
-        },
-    }
-
+    set_database_url(os.environ[DB_URL_ENV_VAR])
+    return dbsettings
     # http://docs.sqlalchemy.org/en/latest/core/engines.html
     # http://stackoverflow.com/questions/15065037
     # http://beets.radbox.org/blog/sqlite-nightmare.html
