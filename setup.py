@@ -99,12 +99,27 @@ setup(
         'bitstring==3.1.4',  # manipulation of binary numbers
         'PySide==1.2.4',  # Python interface to Qt
         'pyserial==3.0.1',  # serial port library
+        'six==1.10.0',  # Python 2/3 compatibility library
         'SQLAlchemy==1.0.9',  # database ORM
         'whisker>=0.3.3',  # Whisker client library
+
+        # ---------------------------------------------------------------------
+        # Extras for database access
+        # ---------------------------------------------------------------------
+        'https://cdn.mysql.com/Downloads/Connector-Python/mysql-connector-python-2.1.3.tar.gz',  # MySQL Connector/Python
+
         # ---------------------------------------------------------------------
         # Specials: development versions
         # ---------------------------------------------------------------------
         # 'pyserial==3.0b1',
+
+        # ---------------------------------------------------------------------
+        # For development only
+        # ---------------------------------------------------------------------
+        # 'colorama',
+        # 'docutils==0.12',  # documentation generation tools
+        # 'PyInstaller==3.0',
+        # 'git+https://github.com/pyinstaller/pyinstaller@93d25e563e49f88f5977afd9b6e26cb34bfb5efa',  # PyInstaller=3.1.dev0+93d25e5
     ],
     dependency_links=[
         # We browse at https://github.com/pyserial/pyserial

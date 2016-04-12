@@ -1,39 +1,7 @@
 # requirements file for use with pip
 
-# -----------------------------------------------------------------------------
-# Standard PyPI packages
-# -----------------------------------------------------------------------------
+# refer to setup.py; see https://caremad.io/2013/07/setup-vs-requirement/
 
-alembic==0.8.3  # migration tool for sqlalchemy
-bitstring==3.1.3  # manipulation of binary numbers
-PySide==1.2.4  # Python interface to Qt
-six==1.10.0  # Python 2/3 compatibility library
-SQLAlchemy==1.0.9  # database ORM
+--index-url https://pypi.python.org/simple/
 
-# -----------------------------------------------------------------------------
-# PyInstaller: packaging tool
-# -----------------------------------------------------------------------------
-# PyInstaller==2.7
-# USING DEVELOPMENT VERSION; NOT IN PIP YET
-# http://stackoverflow.com/questions/32154849/wxpython-pyinstaller-fails-with-no-module-named-core
-
-git+https://github.com/pyinstaller/pyinstaller@93d25e563e49f88f5977afd9b6e26cb34bfb5efa  # PyInstaller=3.1.dev0+93d25e5
-
-# -----------------------------------------------------------------------------
-# PyInstaller: serial port control
-# -----------------------------------------------------------------------------
-# pyserial==2.7
-# USING DEVELOPMENT VERSION 3.0b; NOT IN PIP YET
-# http://stackoverflow.com/questions/20101834/pip-install-from-github-repo-branch
-# http://stackoverflow.com/questions/13685920/install-specific-git-commit-with-pip
-# https://pip.pypa.io/en/latest/reference/pip_install/#git
-# ... specifying a commit hash for a particular version
-# git+https://github.com/pyserial/pyserial@3e02f7052747521a21723a618dccf303065da732  # pyserial==3.0b1
-
-https://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065da732  # pyserial==3.0b1, without the need for git installed
-
-# -----------------------------------------------------------------------------
-# For development only
-# -----------------------------------------------------------------------------
-colorama
-docutils==0.12  # documentation generation tools
+-e .
