@@ -22,7 +22,14 @@ a = Analysis(
         ('starfeeder/alembic/env.py', 'alembic'),
         ('starfeeder/alembic/versions/*.py', 'alembic/versions'),
     ],
-    hiddenimports=[],
+    hiddenimports=[
+        # Database-specific backends (loaded by SQLAlchemy depending on URL)
+        # are hidden. So:
+        'PyMySQL',  # MySQL
+        'pyodbc',  # PyODBC, and thus many things
+        'psycopg2',  # PostgreSQL
+        # SQLite is part of the standard library
+    ],
     hookspath=['hooks'],
     runtime_hooks=[],
     excludes=[],
