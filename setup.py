@@ -123,9 +123,9 @@ setup(
         # ---------------------------------------------------------------------
         # For development only
         # ---------------------------------------------------------------------
+        # 'PyInstaller==3.1.1',
         # 'colorama',
         # 'docutils==0.12',  # documentation generation tools
-        # 'PyInstaller==3.0',
         # 'git+https://github.com/pyinstaller/pyinstaller@93d25e563e49f88f5977afd9b6e26cb34bfb5efa',  # PyInstaller=3.1.dev0+93d25e5
     ],
     dependency_links=[
