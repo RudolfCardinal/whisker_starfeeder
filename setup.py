@@ -104,9 +104,16 @@ setup(
         'whisker>=0.3.3',  # Whisker client library
 
         # ---------------------------------------------------------------------
-        # Extras for database access
+        # Database connections (SQLite is built in)
         # ---------------------------------------------------------------------
-        'https://cdn.mysql.com/Downloads/Connector-Python/mysql-connector-python-2.1.3.tar.gz',  # MySQL Connector/Python
+        # MySQL:
+        'PyMySQL==0.7.2',
+
+        # SQL Server / ODBC route:
+        'pyodbc==3.0.10',
+
+        # PostgreSQL:
+        'psycopg2==2.6.1',
 
         # ---------------------------------------------------------------------
         # Specials: development versions
@@ -122,6 +129,9 @@ setup(
         # 'git+https://github.com/pyinstaller/pyinstaller@93d25e563e49f88f5977afd9b6e26cb34bfb5efa',  # PyInstaller=3.1.dev0+93d25e5
     ],
     dependency_links=[
+        # ---------------------------------------------------------------------
+        # PySerial development version
+        # ---------------------------------------------------------------------
         # We browse at https://github.com/pyserial/pyserial
         # We want the commit 3e02f7052747521a21723a618dccf303065da732
         # We want the tarball
@@ -137,8 +147,14 @@ setup(
         #   https://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065da732  # noqa
         # We label it with "#egg=pyserial-3.0b1" for setup.py's benefit
         #   http://stackoverflow.com/questions/3472430
+        # Final answer:
 
         # 'http://github.com/pyserial/pyserial/tarball/3e02f7052747521a21723a618dccf303065da732#egg=pyserial-3.0b1',  # noqa
+
+        # ---------------------------------------------------------------------
+        # MySQL Connector/Python
+        # ---------------------------------------------------------------------
+        # 'https://cdn.mysql.com/Downloads/Connector-Python/mysql-connector-python-2.1.3.tar.gz',  # MySQL Connector/Python
     ],
     # YOU MUST ALSO USE THE "--process-dependency-links" FLAG.
 
