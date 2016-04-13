@@ -6,6 +6,14 @@ PyInstaller .spec file for Starfeeder.
 This should be executed from the project base directory.
 To check that directory references are working, break hooks/hook-serial.py
 and ensure the build crashes.
+
+Run with:
+
+    # activate virtual environment firsrt
+    # install locally first with pip install -e .
+
+    pyinstaller starfeeder.spec --clean [--log-level DEBUG]
+
 """
 
 block_cipher = None
@@ -23,9 +31,12 @@ a = Analysis(
         ('starfeeder/alembic/versions/*.py', 'alembic/versions'),
     ],
     hiddenimports=[
-        # Database-specific backends (loaded by SQLAlchemy depending on URL)
-        # are hidden. So:
-        'PyMySQL',  # MySQL
+        # (1) Database-specific backends (loaded by SQLAlchemy depending on URL)
+        #     are hidden. So we want the following. But:
+        # (2) These are CASE-SENSITIVE and are the names used by Python during
+        #     imports (not, for example, the camel-case version used in PyPI).
+
+        'pymysql',  # MySQL
         'pyodbc',  # PyODBC, and thus many things
         'psycopg2',  # PostgreSQL
         # SQLite is part of the standard library
