@@ -20,6 +20,7 @@
 import collections
 import logging
 import platform
+import traceback
 
 from PySide.QtCore import Qt, Signal, Slot
 from PySide.QtGui import (
@@ -178,7 +179,8 @@ class WrongDatabaseVersionWindow(QDialog):
             # noinspection PyCallByClass
             QMessageBox.about(
                 self, "Failure",
-                "Failed to upgrade database. Error was: {}".format(str(e)))
+                "Failed to upgrade database. Error was: {}.\n\n{}".format(
+                    str(e), traceback.format_exc()))
 
     def closeEvent(self, event):
         self.exit_kill_log.emit()
@@ -262,6 +264,9 @@ class BaseWindow(QMainWindow):
         test_layout.addStretch(1)
         test_group.setLayout(test_layout)
 
+        self.whisker_label_server = QLabel("-")
+        self.whisker_label_port = QLabel("-")
+        self.whisker_label_status = QLabel("-")
         self.status_group = StyledQGroupBox("Status")
         self.status_layout = None
         self.lay_out_status()
@@ -319,10 +324,6 @@ class BaseWindow(QMainWindow):
         self.rfid_labels_status = []
         self.rfid_labels_rfid = []
         self.rfid_labels_at = []
-
-        self.whisker_label_server = QLabel("-")
-        self.whisker_label_port = QLabel("-")
-        self.whisker_label_status = QLabel("-")
 
     # -------------------------------------------------------------------------
     # Exiting

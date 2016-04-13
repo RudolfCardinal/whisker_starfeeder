@@ -50,6 +50,12 @@ log.addHandler(logging.NullHandler())
 
 
 # =============================================================================
+# Constants
+# =============================================================================
+
+MAX_GENERIC_STRING_LENGTH = 255
+
+# =============================================================================
 # SQLAlchemy base.
 # =============================================================================
 # Derived classes will share the specified metadata.
@@ -69,7 +75,7 @@ class SerialPortConfigMixin(object):
     # so we are better off using the __init__ function for defaults.
     # The __init__ function is free-form:
     # http://docs.sqlalchemy.org/en/rel_0_8/orm/mapper_config.html#constructors-and-object-initialization  # noqa
-    port = Column(String)
+    port = Column(String(MAX_GENERIC_STRING_LENGTH))
     baudrate = Column(Integer)
     bytesize = Column(Integer)
     parity = Column(String(length=1))
@@ -137,7 +143,7 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     __tablename__ = 'rfidreader_config'
     id = Column(Integer, primary_key=True)
     master_config_id = Column(Integer, ForeignKey('master_config.id'))
-    name = Column(String)
+    name = Column(String(MAX_GENERIC_STRING_LENGTH))
     enabled = Column(Boolean)
 
     def __init__(self, **kwargs):
@@ -200,7 +206,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     id = Column(Integer, primary_key=True)
     master_config_id = Column(Integer, ForeignKey('master_config.id'))
     reader_id = Column(Integer, ForeignKey('rfidreader_config.id'))
-    name = Column(String)
+    name = Column(String(MAX_GENERIC_STRING_LENGTH))
     enabled = Column(Boolean)
     measurement_rate_hz = Column(Integer)
     stability_n = Column(Integer)
@@ -273,12 +279,12 @@ class MasterConfig(SqlAlchemyAttrDictMixin, Base):
     __tablename__ = 'master_config'
 
     id = Column(Integer, primary_key=True)
-    name = Column(String)
+    name = Column(String(MAX_GENERIC_STRING_LENGTH))
     modified_at = Column(ArrowMicrosecondType, default=arrow.now,
                          onupdate=arrow.now)
-    server = Column(String)
+    server = Column(String(MAX_GENERIC_STRING_LENGTH))
     port = Column(Integer)
-    wcm_prefix = Column(String)
+    wcm_prefix = Column(String(MAX_GENERIC_STRING_LENGTH))
     rfid_effective_time_s = Column(Float)
     rfidreader_configs = relationship("RfidReaderConfig")
     balance_configs = relationship("BalanceConfig")
