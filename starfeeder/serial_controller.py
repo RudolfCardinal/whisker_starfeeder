@@ -18,10 +18,10 @@
 """
 
 from collections import deque, OrderedDict
-import datetime
 import logging
 import platform
 
+import arrow
 from PySide.QtCore import (
     QObject,
     Qt,
@@ -60,7 +60,7 @@ class SerialReader(QObject, StatusMixin):
     """
     started = Signal()
     finished = Signal()
-    line_received = Signal(bytes, datetime.datetime)
+    line_received = Signal(bytes, arrow.Arrow)
 
     def __init__(self, name='?', parent=None, eol=LF):
         super().__init__(parent)
@@ -103,7 +103,7 @@ class SerialReader(QObject, StatusMixin):
         and sends each line on to the receiver.
         """
         self.debug("data: {}".format(repr(data)))
-        timestamp = datetime.datetime.now()
+        timestamp = arrow.now()
         data = self.residual + data
         fragments = data.split(self.eol)
         lines = fragments[:-1]
@@ -231,13 +231,13 @@ class SerialWriter(QObject, StatusMixin):
             outdata = data + self.eol
             self.debug("sending: {}".format(repr(outdata)))
             if DEBUG_WRITE_TIMING:
-                t1 = datetime.datetime.utcnow()
+                t1 = arrow.utcnow()
             self.serial_port.write(outdata)
             # ... will raise SerialTimeoutException if a write timeout is
             #     set and exceeded
             self.serial_port.flush()
             if DEBUG_WRITE_TIMING:
-                t2 = datetime.datetime.utcnow()
+                t2 = arrow.utcnow()
                 nbytes = len(outdata)
                 # noinspection PyUnboundLocalVariable
                 microsec = (t2 - t1).microseconds
