@@ -148,5 +148,6 @@ v0.2.0 (2016-04-07)
 -   Bugfix in error handling when trying to open non-existent serial ports.
 
 v0.2.3 (2016-04-19)
+v0.2.4 (2016-04-19)
 
 -   Bugfix.
