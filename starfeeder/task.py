@@ -45,7 +45,7 @@ class WeightWhiskerTask(WhiskerTask):
         self.dbsettings = get_database_settings()
         self.rfid_effective_time_s = None
 
-    def start(self):
+    def thread_started(self):
         with session_thread_scope(self.dbsettings) as session:
             config = MasterConfig.get_singleton(session)
             self.rfid_effective_time_s = config.rfid_effective_time_s
