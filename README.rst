@@ -146,3 +146,7 @@ v0.2.0 (2016-04-07)
 -   Uses Whisker Python library.
 -   Switch to Arrow datetimes internally.
 -   Bugfix in error handling when trying to open non-existent serial ports.
+
+v0.2.3 (2016-04-19)
+
+-   Bugfix.

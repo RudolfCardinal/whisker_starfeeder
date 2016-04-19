@@ -264,12 +264,12 @@ class BaseWindow(QMainWindow):
         test_layout.addStretch(1)
         test_group.setLayout(test_layout)
 
-        self.whisker_label_server = QLabel("-")
-        self.whisker_label_port = QLabel("-")
-        self.whisker_label_status = QLabel("-")
         self.status_group = StyledQGroupBox("Status")
         self.status_layout = None
-        self.lay_out_status()
+        self.whisker_label_server = None
+        self.whisker_label_port = None
+        self.whisker_label_status = None
+        self.lay_out_status("-", "-", "-")
 
         # For nested layouts: (1) create everything, (2) lay out
         log_group = StyledQGroupBox("Log")
@@ -464,10 +464,9 @@ class BaseWindow(QMainWindow):
             # -----------------------------------------------------------------
             # Display
             # -----------------------------------------------------------------
-            self.lay_out_status()
-            self.whisker_label_server.setText(config.server)
-            self.whisker_label_port.setText(str(config.port))
-            self.whisker_label_status.setText("Not connected")
+            self.lay_out_status(config.server,
+                                str(config.port),
+                                "Not connected")
 
         # ---------------------------------------------------------------------
         # Start
@@ -620,7 +619,7 @@ class BaseWindow(QMainWindow):
     # More GUI
     # -------------------------------------------------------------------------
 
-    def lay_out_status(self):
+    def lay_out_status(self, server_info='', port_info='', status_info=''):
         # Since we want to remove and add items, the simplest thing isn't to
         # own the grid layout and remove/add widgets, but to own the Group
         # within which the layout sits, and assign a new layout (presumably
@@ -730,12 +729,13 @@ class BaseWindow(QMainWindow):
                                       0, 0, ALIGNMENT)
         whisker_status_grid.addWidget(QLabel("<b>Port</b>"), 0, 1, ALIGNMENT)
         whisker_status_grid.addWidget(QLabel("<b>Status</b>"), 0, 2, ALIGNMENT)
-        self.whisker_label_server.setText("-")
-        self.whisker_label_port.setText("-")
-        self.whisker_label_status.setText("-")
+        self.whisker_label_server = QLabel(server_info)
+        self.whisker_label_port = QLabel(port_info)
+        self.whisker_label_status = QLabel(status_info)
         whisker_status_grid.addWidget(self.whisker_label_server,
                                       1, 0, ALIGNMENT)
-        whisker_status_grid.addWidget(self.whisker_label_port, 1, 1, ALIGNMENT)
+        whisker_status_grid.addWidget(self.whisker_label_port,
+                                      1, 1, ALIGNMENT)
         whisker_status_grid.addWidget(self.whisker_label_status,
                                       1, 2, ALIGNMENT)
 
