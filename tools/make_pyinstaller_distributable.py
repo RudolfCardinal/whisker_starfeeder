@@ -30,8 +30,8 @@ LAUNCHFILE = os.path.join(DIST_SUBDIR, 'starfeeder')
 try:
     from starfeeder.version import VERSION
 except ImportError:
-    print("If running under Windows, add {} to "
-          "PYTHONPATH".format(PROJECT_BASE_DIR))
+    print("Run from a virtualenv within which you have installed this package "
+          "using 'pip install -e .'")
     raise
 
 DOCMAKER = os.path.join(PROJECT_BASE_DIR, 'tools', 'docbuild.py')

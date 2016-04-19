@@ -29,7 +29,7 @@ HTML = os.path.join(DOC_DIR, 'temp.html')
 PDF = os.path.join(DIST_DIR, 'manual.pdf')
 RST2HTML = shutil.which('rst2html.py')
 if RST2HTML is None:
-    raise AssertionError('Need rst2html.py')
+    raise AssertionError('Need rst2html.py (use: pip install docutils)')
 WKHTMLTOPDF = shutil.which('wkhtmltopdf')
 if WKHTMLTOPDF is None:
     raise AssertionError('Need wkhtmltopdf')
