@@ -17,5 +17,5 @@
     limitations under the License.
 """
 
-VERSION = '0.2.4'
+VERSION = '0.2.5'
 # Use semantic versioning: http://semver.org/

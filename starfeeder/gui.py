@@ -37,8 +37,6 @@ from PySide.QtGui import (
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QTextCursor,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -52,6 +50,7 @@ from whisker.qt import (
     ModalEditListView,
     RadioGroup,
     StyledQGroupBox,
+    TextLogElement,
     TransactionalEditDialogMixin,
     ValidationError,
 )
@@ -271,26 +270,7 @@ class BaseWindow(QMainWindow):
         self.whisker_label_status = None
         self.lay_out_status("-", "-", "-")
 
-        # For nested layouts: (1) create everything, (2) lay out
-        log_group = StyledQGroupBox("Log")
-        log_layout_1 = QVBoxLayout()
-        log_layout_2 = QHBoxLayout()
-        self.log = QTextEdit()
-        self.log.setReadOnly(True)
-        self.log.setLineWrapMode(QTextEdit.NoWrap)
-        font = self.log.font()
-        font.setFamily("Courier")
-        font.setPointSize(10)
-        log_clear_button = QPushButton('Clear log')
-        log_clear_button.clicked.connect(self.log.clear)
-        log_copy_button = QPushButton('Copy to clipboard')
-        log_copy_button.clicked.connect(self.copy_whole_log)
-        log_layout_2.addWidget(log_clear_button)
-        log_layout_2.addWidget(log_copy_button)
-        log_layout_2.addStretch(1)
-        log_layout_1.addWidget(self.log)
-        log_layout_1.addLayout(log_layout_2)
-        log_group.setLayout(log_layout_1)
+        self.log = TextLogElement()
 
         # You can't use the layout as the parent of the widget.
         # But you don't need to specify a parent when you use addWidget; it
@@ -303,7 +283,7 @@ class BaseWindow(QMainWindow):
         main_layout.addWidget(run_group)
         main_layout.addWidget(test_group)
         main_layout.addWidget(self.status_group)
-        main_layout.addWidget(log_group)
+        main_layout.addWidget(self.log.get_widget())
 
         self.set_button_states()
 
@@ -592,28 +572,10 @@ class BaseWindow(QMainWindow):
         # http://stackoverflow.com/questions/16568451
         if source:
             msg = "[{}] {}".format(source, msg)
-        if self.log.toPlainText():
-            msg = "\n" + msg
-        self.log.moveCursor(QTextCursor.End)
-        self.log.insertPlainText(msg)
-        self.scroll_to_end_of_log()
+        self.log.add(msg)
 
     def status(self, msg):
         self.on_status(msg, self.NAME)
-
-    def copy_whole_log(self):
-        # Ctrl-C will copy the selected parts.
-        # log.copy() will copy the selected parts.
-        self.log.selectAll()
-        self.log.copy()
-        self.log.moveCursor(QTextCursor.End)
-        self.scroll_to_end_of_log()
-
-    def scroll_to_end_of_log(self):
-        vsb = self.log.verticalScrollBar()
-        vsb.setValue(vsb.maximum())
-        hsb = self.log.horizontalScrollBar()
-        hsb.setValue(0)
 
     # -------------------------------------------------------------------------
     # More GUI

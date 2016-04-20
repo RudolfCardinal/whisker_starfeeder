@@ -100,8 +100,8 @@ setup(
         'PySide==1.2.4',  # Python interface to Qt
         'pyserial==3.0.1',  # serial port library
         'six==1.10.0',  # Python 2/3 compatibility library
-        'SQLAlchemy==1.0.9',  # database ORM
-        'whisker>=0.3.3',  # Whisker client library
+        'SQLAlchemy==1.0.12',  # database ORM
+        'whisker>=0.3.4',  # Whisker client library
 
         # ---------------------------------------------------------------------
         # Database connections (SQLite is built in)
