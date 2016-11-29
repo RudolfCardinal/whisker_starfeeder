@@ -20,6 +20,8 @@
 from collections import deque, OrderedDict
 import logging
 import platform
+import traceback
+from typing import Any, Dict, Type, TypeVar, Union
 
 import arrow
 from PySide.QtCore import (
@@ -31,13 +33,13 @@ from PySide.QtCore import (
     # Slot,
 )
 import serial
+from serial import Serial
 # pySerial 3: http://pyserial.readthedocs.org/en/latest/pyserial.html
 from whisker.qt import exit_on_exception, StatusMixin
 
 from starfeeder.constants import ThreadOwnerState
 
 log = logging.getLogger(__name__)
-log.addHandler(logging.NullHandler())
 
 
 CR = b'\r'
@@ -62,7 +64,8 @@ class SerialReader(QObject, StatusMixin):
     finished = Signal()
     line_received = Signal(bytes, arrow.Arrow)
 
-    def __init__(self, name='?', parent=None, eol=LF):
+    def __init__(self, name: str = '?', parent: QObject = None,
+                 eol: bytes = LF) -> None:
         super().__init__(parent)
         StatusMixin.__init__(self, name, log)
         self.serial_port = None  # set later
@@ -73,7 +76,7 @@ class SerialReader(QObject, StatusMixin):
         self.residual = b''
 
     @exit_on_exception
-    def start(self, serial_port):
+    def start(self, serial_port: Serial) -> None:
         self.serial_port = serial_port
         self.debug("SerialReader starting. Using port {}".format(serial_port))
         self.finish_requested = False
@@ -90,14 +93,18 @@ class SerialReader(QObject, StatusMixin):
                     self.process_data(data)
         # except serial.SerialException as e:
         except Exception as e:
-            self.error("----- EXCEPTION within SerialReader")
-            self.error(str(e))
-        # We should catch serial.SerialException, but there is a bug in
-        # serial/serialposix.py that does "if e[0] != errno.EAGAIN", which
-        # raises TypeError: 'SerialException' object does not support indexing
+            self.error("Serial port error: {}; stopping".format(str(e)))
+            self.error(traceback.format_exc())
+        # - We should catch serial.SerialException, but there is a bug in
+        #   serial/serialposix.py that does "if e[0] != errno.EAGAIN", which
+        #   raises "TypeError: 'SerialException' object does not support
+        #   indexing", so we use "except Exception as e:"
+        # - 2016-11-28: looks like this bug is now fixed in PySerial 3.2.1
+        # - ... but we can also get "termios.error: (22, 'Invalid argument'),
+        #   e.g. ?if we use parity E with a socat port. So catch everything.
         self.finish()
 
-    def process_data(self, data):
+    def process_data(self, data: bytes) -> None:
         """
         Adds the incoming data to any stored residual, splits it into lines,
         and sends each line on to the receiver.
@@ -113,7 +120,7 @@ class SerialReader(QObject, StatusMixin):
             self.line_received.emit(line, timestamp)
 
     @exit_on_exception
-    def stop(self):
+    def stop(self) -> None:
         """
         Request that the serial handler terminates.
 
@@ -155,7 +162,7 @@ class SerialReader(QObject, StatusMixin):
         self.debug("stopping")
         self.finish_requested = True
 
-    def finish(self):
+    def finish(self) -> None:
         self.finished.emit()
 
 
@@ -167,7 +174,8 @@ class SerialWriter(QObject, StatusMixin):
     started = Signal()
     finished = Signal()
 
-    def __init__(self, name='?', parent=None, eol=LF, encoding='utf8'):
+    def __init__(self, name: str = '?', parent: QObject = None,
+                 eol: bytes = LF, encoding: str = 'utf8') -> None:
         # ... UTF8 is ASCII for normal characters.
         super().__init__(parent)
         StatusMixin.__init__(self, name, log)
@@ -187,13 +195,13 @@ class SerialWriter(QObject, StatusMixin):
         # = "don't send new things immediately; we're in a delay"
 
     @exit_on_exception
-    def start(self, serial_port):
+    def start(self, serial_port: Serial) -> None:
         self.debug("starting")
         self.serial_port = serial_port
         self.started.emit()
 
     @exit_on_exception
-    def send(self, data, delay_ms):
+    def send(self, data: Union[bytes, str], delay_ms: int) -> None:
         """
         Sending interface offered to others.
         We maintain an orderly output queue and allow delays.
@@ -205,7 +213,7 @@ class SerialWriter(QObject, StatusMixin):
             self.process_queue()
 
     @exit_on_exception
-    def process_queue(self):
+    def process_queue(self) -> None:
         """Deals with what's in the queue."""
         self.busy = False
         while len(self.queue) > 0:
@@ -218,12 +226,12 @@ class SerialWriter(QObject, StatusMixin):
                 return
             self._send(data)
 
-    def wait(self, delay_ms):
+    def wait(self, delay_ms: int) -> None:
         self.busy = True
         self.callback_timer.setSingleShot(True)
         self.callback_timer.start(delay_ms)
 
-    def _send(self, data):
+    def _send(self, data: bytes) -> None:
         """
         Internal function to send data to the serial port directly.
         """
@@ -245,7 +253,8 @@ class SerialWriter(QObject, StatusMixin):
                     "Sent {} bytes in {} microseconds ({} microseconds per "
                     "byte)".format(nbytes, microsec, microsec / nbytes))
         except Exception as e:
-            self.error(str(e))
+            self.error("Serial port error: {}; continuing".format(str(e)))
+            self.error(traceback.format_exc())
 
 
 class SerialController(QObject, StatusMixin):
@@ -255,32 +264,37 @@ class SerialController(QObject, StatusMixin):
     data_send_requested = Signal(bytes, int)
     finished = Signal()
 
-    def __init__(self, name, parent=None):
+    def __init__(self, name: str, parent: QObject = None) -> None:
         super().__init__(parent)
         StatusMixin.__init__(self, name, log)
 
     @exit_on_exception
-    def on_receive(self, data, timestamp):
+    def on_receive(self, data: bytes, timestamp: arrow.Arrow) -> None:
         """Should be overridden."""
         pass
 
-    def on_start(self):
+    def on_start(self) -> None:
         """Should be overridden."""
         pass
 
-    def send(self, data, delay_ms=0):
+    def send(self, data: str, delay_ms: int = 0) -> None:
         self.data_send_requested.emit(data, delay_ms)
 
-    def stop(self):
+    def stop(self) -> None:
         """
         Can be overridden, for shutdown tasks.
         But you must emit the finished event when you're happy to proceed.
         """
         self.finished.emit()
 
-    def report_status(self):
+    def report_status(self) -> None:
         """Should be overridden."""
         pass
+
+
+SR = TypeVar('SR', bound='SerialReader')
+SW = TypeVar('SW', bound='SerialWriter')
+SC = TypeVar('SC', bound='SerialController')
 
 
 class SerialOwner(QObject, StatusMixin):
@@ -301,11 +315,23 @@ class SerialOwner(QObject, StatusMixin):
     status_requested = Signal()
 
     # noinspection PyUnresolvedReferences
-    def __init__(self, serial_args, parent=None, rx_eol=LF, tx_eol=LF,
-                 callback_id=None, name='?', encoding='utf8',
-                 reader_class=SerialReader, reader_kwargs=None,
-                 writer_class=SerialWriter, writer_kwargs=None,
-                 controller_class=SerialController, controller_kwargs=None):
+    def __init__(self,
+                 serial_args: Dict[str, Any],
+                 parent: QObject = None,
+                 rx_eol: bytes = LF,
+                 tx_eol: bytes = LF,
+                 callback_id: int = None,
+                 name: str = '?',
+                 encoding: str = 'utf8',
+                 reader_class: Type[SR] = SerialReader,
+                 reader_kwargs: Dict[str, Any] = None,
+                 writer_class: Type[SW] = SerialWriter,
+                 writer_kwargs: Dict[str, Any] = None,
+                 controller_class: Type[SC] = SerialController,
+                 controller_kwargs: Dict[str, Any] = None,
+                 read_timeout_sec: float = READ_TIMEOUT_SEC,
+                 write_timeout_sec: float = WRITE_TIMEOUT_SEC,
+                 inter_byte_timeout_sec: float = INTER_BYTE_TIMEOUT_SEC):
         """
         serial_args: as per PySerial:
             port
@@ -320,10 +346,10 @@ class SerialOwner(QObject, StatusMixin):
         super().__init__(parent)
         StatusMixin.__init__(self, name, log)
         self.callback_id = callback_id
-        reader_kwargs = reader_kwargs or {}
-        writer_kwargs = writer_kwargs or {}
-        controller_kwargs = controller_kwargs or {}
-        self.serial_port = None
+        reader_kwargs = reader_kwargs or {}  # type: Dict[str, Any]
+        writer_kwargs = writer_kwargs or {}  # type: Dict[str, Any]
+        controller_kwargs = controller_kwargs or {}  # type: Dict[str, Any]
+        self.serial_port = None  # type: Serial
         self.readerthread = QThread(self)
         self.writerthread = QThread(self)
         self.controllerthread = QThread(self)
@@ -332,9 +358,9 @@ class SerialOwner(QObject, StatusMixin):
         # Serial port
         self.serial_args = serial_args
         self.serial_args.update(dict(
-            timeout=READ_TIMEOUT_SEC,
-            write_timeout=WRITE_TIMEOUT_SEC,
-            inter_byte_timeout=INTER_BYTE_TIMEOUT_SEC,
+            timeout=read_timeout_sec,
+            write_timeout=write_timeout_sec,
+            inter_byte_timeout=inter_byte_timeout_sec,
         ))
         # timeout:
         #   read timeout... in seconds, when numeric
@@ -406,13 +432,13 @@ class SerialOwner(QObject, StatusMixin):
     # General state control
     # -------------------------------------------------------------------------
 
-    def is_running(self):
+    def is_running(self) -> bool:
         running = self.state != ThreadOwnerState.stopped
         self.debug("is_running: {} (state: {})".format(running,
                                                        self.state.name))
         return running
 
-    def set_state(self, state):
+    def set_state(self, state: ThreadOwnerState) -> None:
         self.debug("state: {} -> {}".format(self.state.name, state.name))
         self.state = state
         self.state_change.emit(self.callback_id, state.name)
@@ -426,7 +452,7 @@ class SerialOwner(QObject, StatusMixin):
     # notify us that it's started (since such notifications are via the Qt
     # message loop); therefore, we must start the writer first.
 
-    def start(self):
+    def start(self) -> None:
         self.status("Starting serial")
         if self.state != ThreadOwnerState.stopped:
             self.error("Can't start: state is: {}".format(self.state.name))
@@ -436,30 +462,31 @@ class SerialOwner(QObject, StatusMixin):
         try:
             self.serial_port = serial.Serial(**self.serial_args)
         except Exception as e:
-            self.error(str(e))
+            self.error("Serial port error: {}; stopping".format(str(e)))
+            self.error(traceback.format_exc())
             self.stop()
             return
         self.debug("starting writer thread")
         self.writerthread.start()
 
     @exit_on_exception
-    def writerthread_started(self):
+    def writerthread_started(self) -> None:
         self.writer_start_requested.emit(self.serial_port)
 
     @exit_on_exception
-    def writer_started(self):
+    def writer_started(self) -> None:
         self.debug("start: starting reader thread")
         self.readerthread.start()
 
     @exit_on_exception
-    def readerthread_started(self):
+    def readerthread_started(self) -> None:
         self.reader_start_requested.emit(self.serial_port)
         # We'll never get a callback from that; it's now busy.
         self.debug("start: starting controller thread")
         self.controllerthread.start()
 
     @exit_on_exception
-    def controllerthread_started(self):
+    def controllerthread_started(self) -> None:
         self.set_state(ThreadOwnerState.running)
         self.started.emit()
 
@@ -468,7 +495,7 @@ class SerialOwner(QObject, StatusMixin):
     # -------------------------------------------------------------------------
     # The stop sequence is more fluid, to cope with any problems.
 
-    def stop(self):
+    def stop(self) -> None:
         if self.state == ThreadOwnerState.stopped:
             self.error("Can't stop: state is: {}".format(self.state.name))
             return
@@ -479,31 +506,33 @@ class SerialOwner(QObject, StatusMixin):
         self.controller_stop_requested.emit()
 
     @exit_on_exception
-    def reader_finished(self):
+    def reader_finished(self) -> None:
         self.debug("SerialController.reader_finished")
         self.readerthread.quit()
 
     @exit_on_exception
-    def readerthread_finished(self):
+    def readerthread_finished(self) -> None:
         self.debug("stop: reader thread stopped")
         self.check_everything_finished()
 
     @exit_on_exception
-    def writerthread_finished(self):
+    def writerthread_finished(self) -> None:
         self.debug("stop: writer thread stopped")
         self.check_everything_finished()
 
     @exit_on_exception
-    def controllerthread_finished(self):
+    def controllerthread_finished(self) -> None:
         self.debug("stop: controller thread stopped")
         self.check_everything_finished()
 
-    def check_everything_finished(self):
+    def check_everything_finished(self) -> bool:
         if (self.readerthread.isRunning() or
                 self.writerthread.isRunning() or
                 self.controllerthread.isRunning()):
             return False
+        # If we get here: yes, everything is finished. Tidy up.
         if self.serial_port:
+            self.debug("Closing serial port")
             self.serial_port.close()  # for Windows
         self.set_state(ThreadOwnerState.stopped)
         self.finished.emit()
@@ -513,7 +542,7 @@ class SerialOwner(QObject, StatusMixin):
     # Info
     # -------------------------------------------------------------------------
 
-    def report_status(self):
+    def report_status(self) -> None:
         self.status("state: {}".format(self.state.name))
         # I think it's OK to request serial port information from the GUI
         # thread...
@@ -554,6 +583,10 @@ class SerialOwner(QObject, StatusMixin):
             portinfo['[time_per_char_microsec]'] = time_per_char_microsec
             self.status("Serial port info: " + ", ".join(
                 "{}={}".format(k, v) for k, v in portinfo.items()))
-        except ValueError:
-            self.status("Serial port is unhappy - may be closed")
+        except Exception as e:
+            self.warning(
+                "Serial port is unhappy - may be closed, or trying to read a "
+                "non-existent attribute; error: {}".format(str(e)))
+            self.warning(traceback.format_exc())
+
         self.status_requested.emit()

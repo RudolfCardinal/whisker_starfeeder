@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# weigh/weigh.py
+# experimenting/weigh.py
 
 import argparse
 import logging
@@ -60,4 +60,4 @@ def main(alembic_env_dir):
 
     MainWindow(session)  # also sets up Twisted with tkinter
 
-# *** not working: a modal dialog (using grab_set) blocks the Twisted TCP/IP stuff
+# --- not working: a modal dialog (using grab_set) blocks the Twisted TCP/IP stuff

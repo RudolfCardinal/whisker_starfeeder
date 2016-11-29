@@ -98,9 +98,10 @@ setup(
         'attrdict',  # dictionaries with attribute-style access
         'bitstring==3.1.4',  # manipulation of binary numbers
         'PySide==1.2.4',  # Python interface to Qt
-        'pyserial==3.0.1',  # serial port library
+        'pyserial==3.2.1',  # serial port library
         'six==1.10.0',  # Python 2/3 compatibility library
         'SQLAlchemy==1.0.12',  # database ORM
+        'typing==3.5.2.2',  # part of stdlib in Python 3.5, but not 3.4
         'whisker>=0.3.4',  # Whisker client library
 
         # ---------------------------------------------------------------------
@@ -162,6 +163,8 @@ setup(
         'console_scripts': [
             # Format is 'script=module:function".
             'starfeeder=starfeeder.main:main',
+            'starfeeder_test_mimic_rfid_reader=starfeeder.test_mimic_rfid_reader:main',
+            'starfeeder_test_mimic_balance=starfeeder.test_mimic_balance:main',
         ],
     },
 )

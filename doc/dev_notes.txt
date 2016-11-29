@@ -247,17 +247,17 @@ SUMMARY OF THREADS.
 - main/GUI thread
   also on this thread:
     1 x WhiskerOwner
-    lots x RfidOwner
-    lots x BalanceOwner
+    lots x RfidOwner (deriving from SerialOwner)
+    lots x BalanceOwner (deriving from SerialOwner)
 - 1 x whiskertaskthread: WhiskerController, WhiskerTask/WeightWhiskerTask
     ... talks to immediate socket, does task logic
 - 1 x mainsockthread: WhiskerMainSocketListener
     ... listens on main socket
-- lots x SerialReader/derived classes
+- lots x SerialReader (+/- derived, but we're not deriving)
     ... listen to serial ports
-- lots x SerialWriter/derived classes
+- lots x SerialWriter (+/- derived, but we're not deriving)
     ... write to serial ports
-- lots x SerialController/derived classes
+- lots x SerialController/derived classes (e.g. BalanceController, RfidController)
     ... do the thinking
 
 GUI design
@@ -314,6 +314,37 @@ Signals -> slots
 
   The reasons to use the decorator, if it worked properly, are:
   http://stackoverflow.com/questions/14421897/is-the-pyside-slot-decorator-necessary
+
+2016-11-29: intermittent problems with Python objects going between threads via signals
+- PyQt: http://eli.thegreenplace.net/2011/04/25/passing-extra-arguments-to-pyqt-slot
+- PySide:
+    - http://pyside.github.io/docs/pyside/PySide/QtCore/Signal.html
+    - http://pyside.github.io/docs/pyside/PySide/QtCore/Qt.html#PySide.QtCore.PySide.QtCore.Qt.ConnectionType
+- Aha! And, perhaps, oh dear.
+    - site-packages/pysideuic/Compiler/qtproxies.py
+    ... QtCore.QObject.connect
+        ... calls ProxyClassMember(cls, "connect", 0)(*args)
+                                   ^^^ __init___     ^^^ __call___
+    ... and ProxyClassMember.__call__() uses ", ".join(map(as_string, args))
+        ... is that part of the actual signal calling framework??
+- No, the docs do say:
+    "Signals can be defined using the QtCore.Signal() class. Python types and
+    C types can be passed as parameters to it. If you need to overload it just
+    pass the types as tuples or lists."
+    http://wiki.qt.io/Signals_and_Slots_in_PySide#New_syntax:_Signal.28.29_and_Slot.28.29
+- Actual source is something like
+    https://github.com/pyside/pyside2/blob/master/PySide2/QtCore/glue/qobject_connect.cpp
+- Should we serialize to a string, or pickle, before passing parameters?
+  The question would be whether Python would actually pass a reference to
+  the pickled bytes/string and the same vulnerability would exist...
+- General advice:
+    http://stackoverflow.com/questions/11945183/what-are-good-practices-for-avoiding-crashes-hangs-in-pyqt
+    http://pydev.blogspot.co.uk/2014/03/should-python-garbage-collector-be.html
+- MAY BE THIS SORT OF BUG:
+    https://bugreports.qt.io/browse/PYSIDE-79
+    ^^^ yes, this one?
+    "Apparently signal instances do not hold a gc reference (as in Py_INCREF)
+    to their source objects..."
 
 Command-line options to Qt
 - http://doc.qt.io/qt-5/qapplication.html#QApplication

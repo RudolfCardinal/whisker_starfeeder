@@ -151,3 +151,45 @@ v0.2.3 (2016-04-19)
 v0.2.4 (2016-04-19)
 
 -   Bugfix.
+
+v0.2.5
+
+-   Internal changes only?
+
+v0.2.6 (2016-11-24)
+
+-   Python type hints.
+-   NOTE that to install Python 3.4 (required for this version of PySide) under
+    Ubuntu 16.10, you need to:
+    - download Python 3.4.4 source, then:
+
+    .. code-block::
+
+        $ tar xvf Python-3.4.4.tgz
+        $ cd Python-3.4.4
+        $ configure --enable-shared
+        $ make
+        $ sudo make install
+
+            # now unbreak wrong symlink and replace with old:
+        $ sudo rm /usr/bin/python3  # "make install" made this point to python3.4
+        $ sudo ln -s /usr/bin/python3.5 /usr/bin/python3
+
+            # now set up library links
+        $ sudo ln -s /usr/local/lib/libpython3.4m.so.1.0 /usr/lib/x86_64-linux-gnu/libpython3.4m.so.1.0
+
+            # this should now work:
+        $ python3.4
+
+-   Upgraded from pyserial 3.0.1 to 3.2.1
+    ... also allows the use of Linux pseudoterminals for testing;
+        http://stackoverflow.com/questions/34831131
+-   Passwords obscured in debug-level database URLs.
+-   Top-level exception tracebacks go to log (like all others), not to print()
+    using traceback.print_exc().
+-   Bug workaround:
+    -   sometimes, ``WeightWhiskerTask.on_mass()`` received something that was
+        not a ``MassEvent``. Not sure why (it doesn't look like anything else
+        is ever sent); could this be a PySide signals bug?
+    -   Workaround is to verify type on receipt (and complain loudly if wrong
+        but ignore/continue).

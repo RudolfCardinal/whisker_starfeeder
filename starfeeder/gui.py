@@ -21,11 +21,14 @@ import collections
 import logging
 import platform
 import traceback
+from typing import List
 
-from PySide.QtCore import Qt, Signal, Slot
+import arrow
+from PySide.QtCore import QObject, Qt, Signal, Slot
 from PySide.QtGui import (
     QApplication,
     QCheckBox,
+    QCloseEvent,  # for type hints
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -43,6 +46,7 @@ from PySide.QtGui import (
 import serial
 from serial.tools.list_ports import comports
 from sqlalchemy.sql import exists
+from sqlalchemy.orm.session import Session  # for type hints
 from whisker.lang import launch_external_file, natural_keys
 from whisker.qt import (
     exit_on_exception,
@@ -78,17 +82,20 @@ from starfeeder.constants import (
 )
 from starfeeder.models import (
     BalanceConfig,
+    CalibrationReport,  # for type hints
+    MassEvent,  # for type hints
     MassEventRecord,
     MasterConfig,
+    RfidEvent,  # for type hints
     RfidEventRecord,
     RfidReaderConfig,
+    SerialPortConfigMixin,  # for type hints
 )
 from starfeeder.rfid import RfidOwner
 from starfeeder.settings import get_database_settings
 from starfeeder.task import WeightWhiskerTask
 
 log = logging.getLogger(__name__)
-log.addHandler(logging.NullHandler())
 
 
 # =============================================================================
@@ -122,7 +129,7 @@ class NoDatabaseSpecifiedWindow(QDialog):
     exit_kill_log = Signal()
 
     # noinspection PyUnresolvedReferences
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(WINDOW_TITLE)
         info = QLabel(DATABASE_ENV_VAR_NOT_SPECIFIED)
@@ -135,7 +142,7 @@ class NoDatabaseSpecifiedWindow(QDialog):
         layout.addWidget(ok_buttons)
         self.setLayout(layout)
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent) -> None:
         self.exit_kill_log.emit()
         event.accept()
 
@@ -144,7 +151,7 @@ class WrongDatabaseVersionWindow(QDialog):
     exit_kill_log = Signal()
 
     # noinspection PyUnresolvedReferences
-    def __init__(self, current_revision, head_revision):
+    def __init__(self, current_revision: str, head_revision: str) -> None:
         super().__init__()
         self.setWindowTitle(WINDOW_TITLE)
 
@@ -168,7 +175,7 @@ class WrongDatabaseVersionWindow(QDialog):
         self.setLayout(main_layout)
 
     @Slot()
-    def upgrade_database(self):
+    def upgrade_database(self) -> None:
         try:
             upgrade_database(ALEMBIC_CONFIG_FILENAME, ALEMBIC_BASE_DIR)
             # noinspection PyCallByClass
@@ -181,7 +188,7 @@ class WrongDatabaseVersionWindow(QDialog):
                 "Failed to upgrade database. Error was: {}.\n\n{}".format(
                     str(e), traceback.format_exc()))
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent) -> None:
         self.exit_kill_log.emit()
         event.accept()
 
@@ -198,7 +205,7 @@ class BaseWindow(QMainWindow):
     exit_kill_log = Signal()
 
     # noinspection PyUnresolvedReferences
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.exit_pending = False
 
@@ -309,7 +316,7 @@ class BaseWindow(QMainWindow):
     # Exiting
     # -------------------------------------------------------------------------
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent) -> None:
         """Trap exit."""
         quit_msg = "Are you sure you want to exit?"
         # noinspection PyCallByClass
@@ -327,7 +334,7 @@ class BaseWindow(QMainWindow):
             event.accept()  # actually quit
             return
         # Now stop everything
-        log.warn("Waiting for threads to finish...")
+        log.warning("Waiting for threads to finish...")
         self.exit_pending = True
         for rfid in self.rfid_list:
             rfid.stop()
@@ -343,7 +350,7 @@ class BaseWindow(QMainWindow):
     # -------------------------------------------------------------------------
 
     @Slot()
-    def configure(self):
+    def configure(self) -> None:
         readonly = self.anything_running()
         with session_thread_scope(self.dbsettings, readonly) as session:
             config = MasterConfig.get_singleton(session)
@@ -357,7 +364,7 @@ class BaseWindow(QMainWindow):
     # -------------------------------------------------------------------------
 
     @Slot()
-    def start(self):
+    def start(self) -> None:
         if self.anything_running():
             # noinspection PyCallByClass
             QMessageBox.about(self, "Can't start",
@@ -384,6 +391,8 @@ class BaseWindow(QMainWindow):
                 self.on_whisker_state_disconnected)
             self.whisker_owner.finished.connect(
                 self.on_whisker_state_disconnected)
+            self.whisker_owner.pingack_received.connect(
+                self.on_whisker_pingack_received)
             # It's OK to connect signals before or after moving them to a
             # different thread: http://stackoverflow.com/questions/20752154
             # We don't want time-critical signals going via the GUI thread,
@@ -460,7 +469,7 @@ class BaseWindow(QMainWindow):
         self.set_button_states()
 
     @Slot()
-    def stop(self):
+    def stop(self) -> None:
         if not self.anything_running():
             # noinspection PyCallByClass
             QMessageBox.about(self, "Can't stop",
@@ -476,7 +485,7 @@ class BaseWindow(QMainWindow):
         self.set_button_states()
 
     @Slot()
-    def something_finished(self):
+    def something_finished(self) -> None:
         if self.anything_running():
             log.debug("... thread finished, but others are still running")
             return
@@ -487,7 +496,7 @@ class BaseWindow(QMainWindow):
             QApplication.quit()
         self.set_button_states()
 
-    def anything_running(self):
+    def anything_running(self) -> bool:
         """Returns a bool."""
         return (
             any(r.is_running() for r in self.rfid_list) or
@@ -501,28 +510,28 @@ class BaseWindow(QMainWindow):
     # -------------------------------------------------------------------------
 
     @Slot()
-    def reset_rfid_devices(self):
+    def reset_rfid_devices(self) -> None:
         for rfid in self.rfid_list:
             rfid.reset()
 
     @Slot()
-    def ping_balances(self):
+    def ping_balances(self) -> None:
         for balance in self.balance_list:
             balance.ping()
 
     @Slot()
-    def calibrate_balances(self):
+    def calibrate_balances(self) -> None:
         dialog = CalibrateBalancesWindow(balance_owners=self.balance_list,
                                          parent=self)
         dialog.exec_()
 
     @Slot()
-    def ping_whisker(self):
+    def ping_whisker(self) -> None:
         if self.whisker_owner:
             self.whisker_owner.ping()
 
     @Slot()
-    def report_status(self):
+    def report_status(self) -> None:
         self.status("Requesting status from RFID devices")
         for rfid in self.rfid_list:
             rfid.report_status()
@@ -536,12 +545,12 @@ class BaseWindow(QMainWindow):
         self.status("Status report complete.")
 
     @Slot()
-    def about(self):
+    def about(self) -> None:
         # noinspection PyCallByClass
         QMessageBox.about(self, "Starfeeder", ABOUT)
 
     @Slot()
-    def help(self):
+    def help(self) -> None:
         launch_external_file(MANUAL_FILENAME)
         self.status("Launched {}".format(MANUAL_FILENAME))
         # QMessageBox.about(self, "Starfeeder", HELP)
@@ -550,7 +559,7 @@ class BaseWindow(QMainWindow):
     # Calibration
     # -------------------------------------------------------------------------
 
-    def on_calibrated(self, calibration_report):
+    def on_calibrated(self, calibration_report: CalibrationReport) -> None:
         msg = str(calibration_report)
         self.status(msg)
         log.info(msg)
@@ -568,20 +577,21 @@ class BaseWindow(QMainWindow):
     # -------------------------------------------------------------------------
 
     @Slot(str, str)
-    def on_status(self, msg, source=""):
+    def on_status(self, msg: str, source: str = "") -> None:
         # http://stackoverflow.com/questions/16568451
         if source:
             msg = "[{}] {}".format(source, msg)
         self.log.add(msg)
 
-    def status(self, msg):
+    def status(self, msg: str) -> None:
         self.on_status(msg, self.NAME)
 
     # -------------------------------------------------------------------------
     # More GUI
     # -------------------------------------------------------------------------
 
-    def lay_out_status(self, server_info='', port_info='', status_info=''):
+    def lay_out_status(self, server_info: str = '', port_info: str = '',
+                       status_info: str = '') -> None:
         # Since we want to remove and add items, the simplest thing isn't to
         # own the grid layout and remove/add widgets, but to own the Group
         # within which the layout sits, and assign a new layout (presumably
@@ -702,14 +712,20 @@ class BaseWindow(QMainWindow):
                                       1, 2, ALIGNMENT)
 
     @exit_on_exception
-    def on_rfid(self, rfid_event):
+    def on_rfid(self, rfid_event: RfidEvent) -> None:
+        if not isinstance(rfid_event, RfidEvent):
+            log.critical("Bad rfid_event: {}".format(rfid_event))
+            return
         rfid_index = self.rfid_id_to_idx[rfid_event.reader_id]
         self.rfid_labels_rfid[rfid_index].setText(str(rfid_event.rfid))
         self.rfid_labels_at[rfid_index].setText(
             rfid_event.timestamp.strftime(GUI_TIME_FORMAT))
 
     @exit_on_exception
-    def on_mass(self, mass_event):
+    def on_mass(self, mass_event: MassEvent) -> None:
+        if not isinstance(mass_event, MassEvent):
+            log.critical("Bad mass_event: {}".format(mass_event))
+            return
         rfid_index = self.rfid_id_to_idx[mass_event.reader_id]
         # For all mass events:
         self.balance_labels_raw_mass[rfid_index].setText(
@@ -731,22 +747,35 @@ class BaseWindow(QMainWindow):
                 mass_event.timestamp.strftime(GUI_TIME_FORMAT))
 
     @exit_on_exception
-    def on_whisker_state_connected(self):
+    def on_whisker_state_connected(self) -> None:
         self.whisker_label_status.setText("Connected")
 
     @exit_on_exception
-    def on_whisker_state_disconnected(self):
+    def on_whisker_state_disconnected(self) -> None:
         self.whisker_label_status.setText("Disconnected")
 
+    # noinspection PyUnusedLocal
     @exit_on_exception
-    def on_rfid_state(self, reader_index, state):
+    def on_whisker_pingack_received(self, timestamp: arrow.Arrow,
+                                    whisker_timestamp: int) -> None:
+        self.status("Whisker server acknowledges ping (timestamp {})".format(
+            timestamp))
+
+    @exit_on_exception
+    def on_rfid_state(self, reader_index: int, state: str) -> None:
+        if reader_index < 0 or reader_index >= len(self.rfid_labels_status):
+            log.critical("bad reader_index: {}".format(repr(reader_index)))
+            return
         self.rfid_labels_status[reader_index].setText(state)
 
     @exit_on_exception
-    def on_balance_state(self, balance_index, state):
+    def on_balance_state(self, balance_index: int, state: str) -> None:
+        if balance_index < 0 or balance_index >= len(self.rfid_labels_status):
+            log.critical("bad balance_index: {}".format(repr(balance_index)))
+            return
         self.balance_labels_status[balance_index].setText(state)
 
-    def set_button_states(self):
+    def set_button_states(self) -> None:
         running = self.anything_running()
         sqlite = database_is_sqlite(self.dbsettings)
         self.configure_button.setText(
@@ -765,7 +794,7 @@ class BaseWindow(QMainWindow):
 # =============================================================================
 
 class RfidKeepCheckListModel(GenericListModel):
-    def item_deletable(self, rowindex):
+    def item_deletable(self, rowindex: int) -> bool:
         return not (
             self.session.query(
                 exists().where(RfidEventRecord.reader_id ==
@@ -775,7 +804,7 @@ class RfidKeepCheckListModel(GenericListModel):
 
 
 class BalanceKeepCheckListModel(GenericListModel):
-    def item_deletable(self, rowindex):
+    def item_deletable(self, rowindex: int) -> bool:
         return not (
             self.session.query(
                 exists().where(MassEventRecord.balance_id ==
@@ -794,7 +823,11 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
     """
 
     # noinspection PyUnresolvedReferences
-    def __init__(self, session, config, parent=None, readonly=False):
+    def __init__(self,
+                 session: Session,
+                 config: MasterConfig,
+                 parent: QObject = None,
+                 readonly: bool = False) -> None:
         super().__init__(parent)  # QDialog
 
         # Title
@@ -877,7 +910,7 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         self.set_rfid_button_states(False, False)
         self.set_balance_button_states(False, False)
 
-    def object_to_dialog(self, obj):
+    def object_to_dialog(self, obj: MasterConfig) -> None:
         self.rfid_effective_time_edit.setText(str(
             obj.rfid_effective_time_s
             if obj.rfid_effective_time_s is not None else ''))
@@ -891,7 +924,7 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
                                                self.session, self)
         self.balance_lv.setModel(balance_lm)
 
-    def dialog_to_object(self, obj):
+    def dialog_to_object(self, obj: MasterConfig) -> None:
         # Master config validation and cross-checks.
         # ---------------------------------------------------------------------
         # Basic checks
@@ -920,6 +953,7 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
             [(b.name, b.port) for b in obj.balance_configs]
         )
         names = [x[0] for x in name_port_pairs]
+        # noinspection PyArgumentList
         duplicate_names = [
             item for item, count in collections.Counter(names).items()
             if count > 1
@@ -932,6 +966,7 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
         if platform.system() == 'Windows':
             # Windows is case-insensitive; e.g. com1, COM1
             ports = [x.upper() for x in ports]
+        # noinspection PyArgumentList
         duplicate_ports = [
             item for item, count in collections.Counter(ports).items()
             if count > 1
@@ -966,39 +1001,40 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
             used_reader_names.append(balance_config.reader.name)
 
     @Slot()
-    def add_rfid(self):
+    def add_rfid(self) -> None:
         config = RfidReaderConfig(master_config_id=self.obj.id)
         self.rfid_lv.add_in_nested_transaction(config)
 
     @Slot()
-    def remove_rfid(self):
+    def remove_rfid(self) -> None:
         self.rfid_lv.remove_selected()
 
     @Slot()
-    def edit_rfid(self):
+    def edit_rfid(self) -> None:
         self.rfid_lv.edit_selected()
 
     @Slot()
-    def add_balance(self):
+    def add_balance(self) -> None:
         config = BalanceConfig(master_config_id=self.obj.id)
         self.balance_lv.add_in_nested_transaction(config)
 
     @Slot()
-    def remove_balance(self):
+    def remove_balance(self) -> None:
         self.balance_lv.remove_selected()
 
     @Slot()
-    def edit_balance(self):
+    def edit_balance(self) -> None:
         self.balance_lv.edit_selected()
 
     @Slot()
-    def set_rfid_button_states(self, selected, maydelete):
+    def set_rfid_button_states(self, selected: bool, maydelete: bool) -> None:
         if not self.readonly:
             self.rfid_remove_button.setEnabled(maydelete)
         self.rfid_edit_button.setEnabled(selected)
 
     @Slot()
-    def set_balance_button_states(self, selected, maydelete):
+    def set_balance_button_states(self, selected: bool,
+                                  maydelete: bool) -> None:
         if not self.readonly:
             self.balance_remove_button.setEnabled(maydelete)
         self.balance_edit_button.setEnabled(selected)
@@ -1014,10 +1050,15 @@ class SerialPortMixin(object):
     FLOW_RTSCTS = 2
     FLOW_DTRDSR = 3
 
-    def __init__(self, port_options=None, allow_other_port=True,
-                 baudrate_options=None, allow_other_baudrate=False,
-                 bytesize_options=None, parity_options=None,
-                 stopbits_options=None, flow_options=None):
+    def __init__(self,
+                 port_options: List[str] = None,
+                 allow_other_port: bool = True,
+                 baudrate_options: List[int] = None,
+                 allow_other_baudrate: bool = False,
+                 bytesize_options: List[int] = None,
+                 parity_options: List[str] = None,
+                 stopbits_options: List[float] = None,
+                 flow_options: List[int] = None) -> None:
         """
         Always helpful to have allow_other_port=True on Linux, because you can
         create new debugging ports at the drop of a hat, and the serial port
@@ -1110,6 +1151,9 @@ class SerialPortMixin(object):
 
         # It's daft to use >1 method of flow control. So use a single radio.
         sp_flow_group = StyledQGroupBox("Flow control")
+        # RadioGroup expects         Iterable[Tuple[str, Any]]
+        # and we're going to give it     List[Tuple[int, str]]
+        # noinspection PyTypeChecker
         self.sp_flow_rg = RadioGroup(flow_map, default=self.FLOW_RTSCTS)
         sp_flow_layout = QVBoxLayout()
         self.sp_flow_rg.add_buttons_to_layout(sp_flow_layout)
@@ -1125,7 +1169,7 @@ class SerialPortMixin(object):
         self.sp_group = StyledQGroupBox('Serial port settings')
         self.sp_group.setLayout(vlayout)
 
-    def serial_port_group_to_object(self, obj):
+    def serial_port_group_to_object(self, obj: SerialPortConfigMixin) -> None:
         try:
             if self.sp_port_options:
                 obj.port = self.sp_port_combo.currentText()
@@ -1150,7 +1194,7 @@ class SerialPortMixin(object):
         obj.rtscts = flow == self.FLOW_RTSCTS
         obj.dsrdtr = flow == self.FLOW_DTRDSR
 
-    def object_to_serial_port_group(self, obj):
+    def object_to_serial_port_group(self, obj: SerialPortConfigMixin) -> None:
         if self.sp_port_options:
             if obj.port in self.sp_port_options:
                 index = self.sp_port_options.index(obj.port)
@@ -1190,7 +1234,7 @@ class SerialPortMixin(object):
 # =============================================================================
 # Do it live, in case they change live.
 
-def get_available_serial_ports():
+def get_available_serial_ports() -> List[str]:
     return sorted([item[0] for item in comports()], key=natural_keys)
     # comports() returns a list/tuple of tuples: (port, desc, hwid)
 
@@ -1202,7 +1246,11 @@ def get_available_serial_ports():
 class RfidConfigDialog(QDialog, TransactionalEditDialogMixin,
                        SerialPortMixin):
 
-    def __init__(self, session, rfid_config, parent=None, readonly=False):
+    def __init__(self,
+                 session: Session,
+                 rfid_config: RfidReaderConfig,
+                 parent: QObject = None,
+                 readonly: bool = False):
         super().__init__(parent)  # QDialog
         SerialPortMixin.__init__(
             self,
@@ -1244,13 +1292,13 @@ class RfidConfigDialog(QDialog, TransactionalEditDialogMixin,
         TransactionalEditDialogMixin.__init__(self, session, rfid_config,
                                               top_layout, readonly=readonly)
 
-    def object_to_dialog(self, obj):
+    def object_to_dialog(self, obj: RfidReaderConfig) -> None:
         self.enabled_group.setChecked(obj.enabled)
         self.id_value_label.setText(str(obj.id))
         self.name_edit.setText(obj.name)
         self.object_to_serial_port_group(obj)
 
-    def dialog_to_object(self, obj):
+    def dialog_to_object(self, obj: RfidReaderConfig) -> None:
         obj.enabled = self.enabled_group.isChecked()
         try:
             obj.name = self.name_edit.text()
@@ -1267,8 +1315,11 @@ class RfidConfigDialog(QDialog, TransactionalEditDialogMixin,
 class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
                           SerialPortMixin):
 
-    def __init__(self, session, balance_config, parent=None,
-                 readonly=False):
+    def __init__(self,
+                 session: Session,
+                 balance_config: BalanceConfig,
+                 parent: QObject = None,
+                 readonly: bool = False):
         super().__init__(parent)  # QDialog
         SerialPortMixin.__init__(
             self,
@@ -1375,7 +1426,7 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         TransactionalEditDialogMixin.__init__(self, session, balance_config,
                                               top_layout, readonly=readonly)
 
-    def object_to_dialog(self, obj):
+    def object_to_dialog(self, obj: BalanceConfig) -> None:
         self.enabled_group.setChecked(obj.enabled or False)
         self.id_value_label.setText(str(obj.id))
         self.name_edit.setText(obj.name)
@@ -1401,7 +1452,7 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
         self.read_continuously_check.setChecked(obj.read_continuously or False)
         self.object_to_serial_port_group(obj)
 
-    def dialog_to_object(self, obj):
+    def dialog_to_object(self, obj: BalanceConfig) -> None:
         obj.enabled = self.enabled_group.isChecked()
         try:
             obj.name = self.name_edit.text()
@@ -1464,7 +1515,8 @@ class BalanceConfigDialog(QDialog, TransactionalEditDialogMixin,
 
 class CalibrateBalancesWindow(QDialog):
     # noinspection PyUnresolvedReferences
-    def __init__(self, balance_owners, parent=None):
+    def __init__(self, balance_owners: List[BalanceOwner],
+                 parent: QObject = None) -> None:
         super().__init__(parent)  # QDialog
         self.setWindowTitle("Calibrate balances")
 

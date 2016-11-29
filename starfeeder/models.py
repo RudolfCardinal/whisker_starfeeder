@@ -20,6 +20,7 @@
 import datetime
 import logging
 import serial
+from typing import Any, Dict, List, Optional
 
 import arrow
 from sqlalchemy import (
@@ -34,6 +35,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship
+from sqlalchemy.orm.session import Session
 from whisker.sqlalchemy import (
     ALEMBIC_NAMING_CONVENTION,
     SqlAlchemyAttrDictMixin,
@@ -46,7 +48,6 @@ from whisker.lang import (
 )
 
 log = logging.getLogger(__name__)
-log.addHandler(logging.NullHandler())
 
 
 # =============================================================================
@@ -84,9 +85,15 @@ class SerialPortConfigMixin(object):
     rtscts = Column(Boolean)
     dsrdtr = Column(Boolean)
 
-    def __init__(self, port='', baudrate=9600, bytesize=serial.EIGHTBITS,
-                 parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
-                 xonxoff=False, rtscts=True, dsrdtr=False):
+    def __init__(self,
+                 port: str = '',
+                 baudrate: int = 9600,
+                 bytesize: int = serial.EIGHTBITS,
+                 parity: str = serial.PARITY_NONE,
+                 stopbits: float = serial.STOPBITS_ONE,
+                 xonxoff: bool = False,
+                 rtscts: bool = True,
+                 dsrdtr: bool = False) -> None:
         self.port = port
         self.baudrate = baudrate
         self.bytesize = bytesize
@@ -97,11 +104,11 @@ class SerialPortConfigMixin(object):
         self.dsrdtr = dsrdtr
 
     @staticmethod
-    def fields_component_serial_port():
+    def fields_component_serial_port() -> List[str]:
         return ['port', 'bytesize', 'parity', 'stopbits',
                 'xonxoff', 'rtscts', 'dsrdtr']
 
-    def str_component_serial_port(self):
+    def str_component_serial_port(self) -> str:
         flowmethods = []
         if self.xonxoff:
             flowmethods.append("XON/OFF")
@@ -122,7 +129,7 @@ class SerialPortConfigMixin(object):
             flow=flow,
         )
 
-    def get_serial_args(self):
+    def get_serial_args(self) -> Dict[str, Any]:
         return dict(
             port=self.port,
             baudrate=self.baudrate,
@@ -146,7 +153,7 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     name = Column(String(MAX_GENERIC_STRING_LENGTH))
     enabled = Column(Boolean)
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.name = kwargs.pop('name', '')
         self.master_config_id = kwargs.pop('master_config_id')
         self.enabled = kwargs.pop('enabled', True)
@@ -159,13 +166,13 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
         kwargs.setdefault('dsrdtr', False)
         SerialPortConfigMixin.__init__(self, **kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ordered_repr(
             self,
             ['id', 'master_config_id', 'name', 'enabled'] +
             self.fields_component_serial_port())
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{}{}: {}".format(
             "[DISABLED] " if not self.enabled else "",
             self.name or "[no name]",
@@ -173,7 +180,7 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
 
     # noinspection PyShadowingBuiltins
     @classmethod
-    def get_name_from_id(cls, session, id):
+    def get_name_from_id(cls, session: Session, id: int) -> Optional[str]:
         obj = session.query(cls).get(id)
         if obj is None:
             return None
@@ -185,15 +192,19 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
 # =============================================================================
 
 class CalibrationReport(object):
-    def __init__(self, balance_id, balance_name, zero_value, refload_value,
-                 refload_mass_kg):
+    def __init__(self,
+                 balance_id: int,
+                 balance_name: str,
+                 zero_value: int,
+                 refload_value: int,
+                 refload_mass_kg: float) -> None:
         self.balance_id = balance_id
         self.balance_name = balance_name
         self.zero_value = zero_value
         self.refload_value = refload_value
         self.refload_mass_kg = refload_mass_kg
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             "Calibrated balance {}: zero value = {}, "
             "loaded value = {} (at {} kg)".format(
@@ -224,7 +235,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
     reader = relationship("RfidReaderConfig",
                           backref=backref("balance", uselist=False))
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.name = kwargs.pop('name', '')
         self.master_config_id = kwargs.pop('master_config_id')
         self.enabled = kwargs.pop('enabled', True)
@@ -246,7 +257,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
         kwargs.setdefault('dsrdtr', False)
         SerialPortConfigMixin.__init__(self, **kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ordered_repr(
             self,
             ['id', 'master_config_id', 'reader_id', 'name',
@@ -256,7 +267,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
              'read_continuously'
              ] + self.fields_component_serial_port())
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{}{}: {}".format(
             "[DISABLED] " if not self.enabled else "",
             self.name or "[no name]",
@@ -264,7 +275,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
 
     # noinspection PyShadowingBuiltins
     @classmethod
-    def get_name_from_id(cls, session, id):
+    def get_name_from_id(cls, session: Session, id: int) -> Optional[str]:
         obj = session.query(cls).get(id)
         if obj is None:
             return None
@@ -289,14 +300,14 @@ class MasterConfig(SqlAlchemyAttrDictMixin, Base):
     rfidreader_configs = relationship("RfidReaderConfig")
     balance_configs = relationship("BalanceConfig")
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.server = kwargs.pop('server', 'localhost')
         self.port = kwargs.pop('port', 3233)
         self.wcm_prefix = kwargs.pop('wcm_prefix', 'starfeeder')
         self.rfid_effective_time_s = kwargs.pop('rfid_effective_time_s', 5.0)
 
     @classmethod
-    def get_latest_or_create(cls, session):
+    def get_latest_or_create(cls, session: Session) -> 'MasterConfig':
         config = session.query(cls).order_by(cls.modified_at.desc()).first()
         if config is None:
             config = cls()
@@ -304,7 +315,8 @@ class MasterConfig(SqlAlchemyAttrDictMixin, Base):
         return config
 
     @classmethod
-    def get_singleton(cls, session, singleton_pk=1):
+    def get_singleton(cls, session: Session,
+                      singleton_pk: int = 1) -> 'MasterConfig':
         config = session.query(cls).get(singleton_pk)
         if config is None:
             config = cls(id=singleton_pk)
@@ -324,15 +336,17 @@ class RfidEvent(object):
     It represents a SINGLE detection event of an RFID.
     This is not of much behavioural interest, or interest for recording, since
     dozens of these get generated in a very short space of time.
-    What is of more behavioural interest is the RfidEvent, below.
+    What is of more behavioural interest is the RfidEventRecord, below.
     """
-    def __init__(self, reader_id, reader_name, rfid, timestamp):
+    def __init__(self,
+                 reader_id: int, reader_name: str,
+                 rfid: int, timestamp: arrow.Arrow) -> None:
         self.reader_id = reader_id
         self.reader_name = reader_name
         self.rfid = rfid
         self.timestamp = timestamp
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return simple_repr(self)
 
 
@@ -354,8 +368,9 @@ class RfidEventRecord(SqlAlchemyAttrDictMixin, Base):
     n_events = Column(Integer, default=1)
 
     @classmethod
-    def get_ongoing_event_by_reader_rfid(cls, session, reader_id, rfid, now,
-                                         rfid_effective_time_s):
+    def get_ongoing_event_by_reader_rfid(
+            cls, session: Session, reader_id: int, rfid: int, now: arrow.Arrow,
+            rfid_effective_time_s: float) -> 'RfidEventRecord':
         """Used for RFID recording. Matches reader and RFID."""
         most_recent_of_interest = (
             now - datetime.timedelta(seconds=rfid_effective_time_s)
@@ -369,9 +384,12 @@ class RfidEventRecord(SqlAlchemyAttrDictMixin, Base):
         )
 
     @classmethod
-    def record_rfid_detection(cls, session, rfid_single_event,
-                              rfid_effective_time_s):
-        """Returns an OrderedNamespace object, not an SQLAlchemy ORM object."""
+    def record_rfid_detection(
+            cls, session: Session, rfid_single_event: RfidEvent,
+            rfid_effective_time_s: float) -> None:
+        if not isinstance(rfid_single_event, RfidEvent):
+            log.critical("Bad rfid_event: {}".format(rfid_single_event))
+            return
         reader_id = rfid_single_event.reader_id
         event = cls.get_ongoing_event_by_reader_rfid(
             session,
@@ -392,7 +410,6 @@ class RfidEventRecord(SqlAlchemyAttrDictMixin, Base):
             )
             session.add(event)
         session.commit()  # ASAP to unlock database
-        # return event.get_attrdict()
 
 
 # While a free-floating ID at a particular reader may be of interest,
@@ -404,9 +421,11 @@ class RfidEventRecord(SqlAlchemyAttrDictMixin, Base):
 # =============================================================================
 
 class MassEvent(object):
-    def __init__(self, balance_id, balance_name,
-                 reader_id, reader_name, rfid,
-                 mass_kg, timestamp, stable, locked):
+    def __init__(self,
+                 balance_id: int, balance_name: str,
+                 reader_id: int, reader_name: str,
+                 rfid: int, mass_kg: float,
+                 timestamp: arrow.Arrow, stable: bool, locked: bool) -> None:
         self.balance_id = balance_id
         self.balance_name = balance_name
         self.reader_id = reader_id
@@ -417,10 +436,10 @@ class MassEvent(object):
         self.stable = stable
         self.locked = locked
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return simple_repr(self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "Balance {}: {} kg (RFID: {})".format(
             self.balance_id, self.mass_kg, self.rfid)
 
@@ -445,8 +464,12 @@ class MassEventRecord(SqlAlchemyAttrDictMixin, Base):
     mass_kg = Column(Float)
 
     @classmethod
-    def record_mass_detection(cls, session, mass_single_event):
+    def record_mass_detection(cls, session: Session,
+                              mass_single_event: MassEvent) -> None:
         """Returns an OrderedNamespace object, not an SQLAlchemy ORM object."""
+        if not isinstance(mass_single_event, MassEvent):
+            log.critical("Bad mass_single_event: {}".format(mass_single_event))
+            return
         balance_id = mass_single_event.balance_id
         # noinspection PyArgumentList
         mass_identified_event = MassEventRecord(

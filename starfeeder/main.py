@@ -34,6 +34,7 @@ import traceback
 
 import PySide
 from PySide.QtGui import QApplication
+from sqlalchemy import create_engine
 from whisker.debug_qt import enable_signal_debugging_simply
 from whisker.logging import (
     configure_logger_for_colour,
@@ -44,6 +45,7 @@ from whisker.sqlalchemy import (
     upgrade_database,
 )
 from whisker.qt import (
+    GarbageCollector,
     LogWindow,
     run_gui,
 )
@@ -72,14 +74,13 @@ from starfeeder.settings import (
 from starfeeder.version import VERSION
 
 log = logging.getLogger(__name__)
-log.addHandler(logging.NullHandler())
 
 
 # =============================================================================
 # Main
 # =============================================================================
 
-def main():
+def main() -> int:
     # -------------------------------------------------------------------------
     # Arguments
     # -------------------------------------------------------------------------
@@ -129,6 +130,20 @@ def main():
     # Create QApplication before we create any windows (or Qt will crash)
     # -------------------------------------------------------------------------
     qt_app = QApplication(qt_args)
+
+    # Attempt to fix rare bugs by constraining the Python garbage collector
+    # to the GUI thread only
+
+    # noinspection PyUnusedLocal
+    my_garbage_collector = GarbageCollector(qt_app, interval_ms=100)
+    # ... with interval of 10000, get
+    #     pymysql.err.OperationalError (1040, 'Too many connections')
+    # ... 500 seems OK
+    # ... not sure why there was a problem, though, as all sessions are created
+    #     using "with session_thread_scope", and when that finishes, it calls
+    #     session.close(), and that's meant to release all resources:
+    #     http://docs.sqlalchemy.org/en/latest/orm/session_basics.html#closing
+    # ... since I'm not sure, let's use 100 to be conservative
 
     # -------------------------------------------------------------------------
     # Logging
@@ -191,7 +206,8 @@ def main():
                     win.exit_kill_log.connect(log_window.exit)
                 return run_gui(qt_app, win)
             raise ValueError(DATABASE_ENV_VAR_NOT_SPECIFIED)
-        log.debug("Using database URL: {}".format(database_url))
+        engine = create_engine(database_url)
+        log.debug("Using database URL: {}".format(engine))  # obscures password
 
         # Has the user requested a command-line database upgrade?
         if args.upgrade_database:
@@ -242,6 +258,7 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except Exception as e:
-        log.critical("Exception caught at top level")
-        traceback.print_exc()
+        log.critical("Exception caught at top level: {}".format(str(e)))
+        log.critical(traceback.format_exc())
+        # Don't use print_exc(); that might not get sent to the log.
         sys.exit(1)

@@ -18,9 +18,11 @@
 """
 
 import re
+from typing import Optional
 
+import arrow
 import bitstring
-from PySide.QtCore import QTimer, Signal
+from PySide.QtCore import QObject, QTimer, Signal
 from whisker.qt import exit_on_exception
 
 from starfeeder.serial_controller import (
@@ -31,7 +33,11 @@ from starfeeder.serial_controller import (
     SerialController,
     SerialOwner,
 )
-from starfeeder.models import RfidEvent
+from starfeeder.models import (
+    BalanceConfig,  # for type hints
+    RfidEvent,
+    RfidReaderConfig,  # for type hints
+)
 
 CMD_RESET_1 = "x"  # response: "MULTITAG-125 01" (+/- "S" as a separate line)
 CMD_RESET_2 = "z"  # response: "MULTITAG-125 01"
@@ -54,7 +60,7 @@ HELLO_REGEX = re.compile(r"^MULTITAG(.*)$")
 RESET_PAUSE_MS = 200
 
 
-def ztag_to_rfid_number(ztag):
+def ztag_to_rfid_number(ztag: str) -> Optional[int]:
     """
     Parses a Z-tag from the RFID reader. Examples:
         Z5A2080A70C2C0001 [= RFID 208210000479322; 208 = Denmark]
@@ -135,7 +141,8 @@ class RfidController(SerialController):
     """
     rfid_received = Signal(RfidEvent)
 
-    def __init__(self, reader_config, balance_config, **kwargs):
+    def __init__(self, reader_config: RfidReaderConfig,
+                 balance_config: BalanceConfig, **kwargs) -> None:
         super().__init__(**kwargs)
         self.reader_config = reader_config
         self.balance_config = balance_config
@@ -145,18 +152,18 @@ class RfidController(SerialController):
         self.reset_timer.timeout.connect(self.reset_2)
 
     @exit_on_exception
-    def on_start(self):
+    def on_start(self) -> None:
         self.reset()
 
     @exit_on_exception
-    def on_stop(self):
+    def on_stop(self) -> None:
         self.send(CMD_NO_OP_CANCEL)  # something to cancel any ongoing read
         self.finished.emit()
         # Inelegant! Risk the writer thread will be terminated before it
         # sends this command. Still, ho-hum.
 
     @exit_on_exception
-    def reset(self):
+    def reset(self) -> None:
         self.info("Resetting RFID: phase 1")
         self.swallow_next_stopped_read = True
         self.send(CMD_NO_OP_CANCEL)  # something to cancel any ongoing read
@@ -172,19 +179,25 @@ class RfidController(SerialController):
         # Anyway, let's not over-complicate it for now; resetting isn't a
         # common thing, and the user will have triggered it directly.
 
-    def reset_2(self):
+    def reset_2(self) -> None:
         self.info("Resetting RFID: phase 2")
         self.swallow_next_stopped_read = False
         self.send(CMD_RESET_1)  # again, to make sure we actually reset
         # Wait for the RFID to say hello before we start reading, or the read
         # command will be swallowed up during the reset.
 
-    def start_reading(self):
+    def start_reading(self) -> None:
         self.info("Asking RFID to start reading")
         self.send(CMD_READING_CONTINUES)
 
     @exit_on_exception
-    def on_receive(self, data, timestamp):
+    def on_receive(self, data: bytes, timestamp: arrow.Arrow):
+        if not isinstance(data, bytes):
+            self.critical("bad data: {}".format(repr(data)))
+            return
+        if not isinstance(timestamp, arrow.Arrow):
+            self.critical("bad timestamp: {}".format(repr(timestamp)))
+            return
         data = data.decode("ascii")
         self.debug("Receiving at {}: {}".format(timestamp, repr(data)))
         if data == RESPONSE_COMMAND_INVALID:
@@ -228,7 +241,8 @@ class RfidOwner(SerialOwner):
     # Inwards, to posessions:
     reset_requested = Signal()
 
-    def __init__(self, rfid_config, callback_id, parent=None):
+    def __init__(self, rfid_config: RfidReaderConfig, callback_id: int,
+                 parent: QObject = None) -> None:
         # Do not keep a copy of rfid_config; it will expire.
         super().__init__(
             serial_args=rfid_config.get_serial_args(),
@@ -248,5 +262,5 @@ class RfidOwner(SerialOwner):
         self.reset_requested.connect(self.controller.reset)
         self.controller.rfid_received.connect(self.rfid_received)
 
-    def reset(self):
+    def reset(self) -> None:
         self.reset_requested.emit()

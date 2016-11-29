@@ -24,34 +24,37 @@ from whisker.sqlalchemy import session_thread_scope
 from whisker.qt import exit_on_exception
 from whisker.qtclient import WhiskerTask
 
+from PySide.QtCore import QObject
 from starfeeder.models import (
+    MassEvent,  # for type hints
     MassEventRecord,
     MasterConfig,
+    RfidEvent,  # for type hints
     RfidEventRecord,
 )
 from starfeeder.settings import get_database_settings
 from starfeeder.version import VERSION
 
 log = logging.getLogger(__name__)
-log.addHandler(logging.NullHandler())
 
 
 class WeightWhiskerTask(WhiskerTask):
     """Doesn't define an end, deliberately."""
 
-    def __init__(self, wcm_prefix="", parent=None, name="whisker_task"):
+    def __init__(self, wcm_prefix: str = "", parent: QObject = None,
+                 name: str = "whisker_task") -> None:
         super().__init__(parent=parent, name=name)
         self.wcm_prefix = wcm_prefix
         self.dbsettings = get_database_settings()
         self.rfid_effective_time_s = None
 
-    def thread_started(self):
+    def thread_started(self) -> None:
         with session_thread_scope(self.dbsettings) as session:
             config = MasterConfig.get_singleton(session)
             self.rfid_effective_time_s = config.rfid_effective_time_s
 
     @exit_on_exception
-    def on_connect(self):
+    def on_connect(self) -> None:
         # self.debug("DERIVED on_connect")
         # debug_object(self)
         # self.whisker.command("TimerSetEvent 2000 5 bop")
@@ -63,13 +66,13 @@ class WeightWhiskerTask(WhiskerTask):
         # if event == "bop":
         #     self.status("boop")
 
-    def broadcast(self, msg):
+    def broadcast(self, msg: str) -> None:
         if self.wcm_prefix:
             msg = "{}{}".format(self.wcm_prefix, msg)
         self.whisker.broadcast(msg)
 
     @exit_on_exception
-    def on_rfid(self, rfid_event):
+    def on_rfid(self, rfid_event: RfidEvent) -> None:
         """
         Record an RFID event.
 
@@ -80,6 +83,9 @@ class WeightWhiskerTask(WhiskerTask):
 
         Don't hold the session too long, on general principles.
         """
+        if not isinstance(rfid_event, RfidEvent):
+            log.critical("Bad rfid_event: {}".format(rfid_event))
+            return
         with session_thread_scope(self.dbsettings) as session:
             RfidEventRecord.record_rfid_detection(
                 session, rfid_event, self.rfid_effective_time_s)
@@ -95,12 +101,15 @@ class WeightWhiskerTask(WhiskerTask):
             )
 
     @exit_on_exception
-    def on_mass(self, mass_event):
+    def on_mass(self, mass_event: MassEvent) -> None:
         """
-        Receive a mass event. Ask the MassIdentifiedEvent class to Work out if
+        Receive a mass event. Ask the MassIdentifiedEvent class to work out if
         it represents an identified mass event (and store it, if so).
         Broadcast the information to the Whisker client.
         """
+        if not isinstance(mass_event, MassEvent):
+            log.critical("Bad mass_event: {}".format(mass_event))
+            return
         if not mass_event.locked or mass_event.rfid is None:
             return
         with session_thread_scope(self.dbsettings) as session:

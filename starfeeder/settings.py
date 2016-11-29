@@ -18,6 +18,7 @@
 """
 
 import os
+from typing import Any, Dict
 
 from starfeeder.constants import DB_URL_ENV_VAR
 
@@ -32,7 +33,7 @@ dbsettings = {
 }
 
 
-def get_database_settings():
+def get_database_settings() -> Dict[str, Any]:
     if DB_URL_ENV_VAR not in os.environ:
         raise ValueError(
             "Environment variable {} not specified".format(DB_URL_ENV_VAR))
@@ -43,16 +44,16 @@ def get_database_settings():
     # http://beets.radbox.org/blog/sqlite-nightmare.html
 
 
-def get_database_url():
+def get_database_url() -> str:
     settings = get_database_settings()
     return settings['url']
 
 
-def set_database_url(url):
+def set_database_url(url: str) -> None:
     global dbsettings
     dbsettings['url'] = url
 
 
-def set_database_echo(echo):
+def set_database_echo(echo: bool) -> None:
     global dbsettings
     dbsettings['echo'] = echo

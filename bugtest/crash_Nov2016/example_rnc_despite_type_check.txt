@@ -1,0 +1,115 @@
+2016-11-29 12:21:13.226 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fadd1e7f588>, thread name=Dummy-8, signal='2mass_received(PyObject)', args=(<MassEvent(rfid=900046000071672, stable=True, reader_id=2, locked=False, mass_kg=0.0, balance_name='balance0', reader_name='rfid0', timestamp=<Arrow [2016-11-29T12:21:13.224728+00:00]>, balance_id=1)>,)
+2016-11-29 12:21:13.226 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: n_pending_measurements: 2 [thread Dummy-8]
+2016-11-29 12:21:13.362 starfeeder.serial_controller:DEBUG: rfid0:SerialReader.process_data: data: b'Z5A2080A70C2C0001\r\n' [thread Dummy-5]
+2016-11-29 12:21:13.362 starfeeder.serial_controller:DEBUG: rfid0:SerialReader.process_data: line: b'Z5A2080A70C2C0001' [thread Dummy-5]
+2016-11-29 12:21:13.363 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fadd1e677c8>, thread name=Dummy-5, signal='2line_received(PyObject,PyObject)', args=(b'Z5A2080A70C2C0001', <Arrow [2016-11-29T12:21:13.362669+00:00]>)
+2016-11-29 12:21:13.363 starfeeder.serial_controller:DEBUG: rfid0:RfidController.on_receive: Receiving at 2016-11-29T12:21:13.362669+00:00: 'Z5A2080A70C2C0001' [thread Dummy-7]
+2016-11-29 12:21:13.364 starfeeder.serial_controller:DEBUG: rfid0:RfidController.on_receive: rfid number = 208210000479322 [thread Dummy-7]
+2016-11-29 12:21:13.364 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.rfid.RfidController object at 0x7fadd1e77e08>, thread name=Dummy-7, signal='2rfid_received(PyObject)', args=(<RfidEvent(rfid=208210000479322, reader_id=2, reader_name='rfid0', timestamp=<Arrow [2016-11-29T12:21:13.362669+00:00]>)>,)
+2016-11-29 12:21:13.387 whisker.qtclient:DEBUG: whisker_controller:WhiskerController.sendline_immsock: Sending to server (IMM): SendToClient -1 starfeederRFID_EVENT: reader rfid0, RFID 208210000479322, timestamp 2016-11-29T12:21:13.362669+00:00 [thread Dummy-2]
+2016-11-29 12:21:13.390 whisker.qtclient:DEBUG: whisker_controller:WhiskerController.getline_immsock: Reply from server (IMM): Success [thread Dummy-2]
+2016-11-29 12:21:13.397 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: data: b'0\r\n' [thread Dummy-6]
+2016-11-29 12:21:13.398 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: line: b'0' [thread Dummy-6]
+2016-11-29 12:21:13.398 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fadd1e7b248>, thread name=Dummy-6, signal='2line_received(PyObject,PyObject)', args=(b'0', <Arrow [2016-11-29T12:21:13.397884+00:00]>)
+2016-11-29 12:21:13.398 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: Balance receiving at 2016-11-29T12:21:13.397884+00:00: '0' (most recent command was: MSV?) [thread Dummy-8]
+2016-11-29 12:21:13.399 starfeeder.serial_controller:DEBUG: balance0:BalanceController.process_value: BALANCE VALUE: 0 =>  0.000000 kg [thread Dummy-8]
+2016-11-29 12:21:13.399 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fadd1e7f588>, thread name=Dummy-8, signal='2mass_received(PyObject)', args=(<MassEvent(rfid=208210000479322, stable=True, reader_id=2, locked=False, mass_kg=0.0, balance_name='balance0', reader_name='rfid0', timestamp=<Arrow [2016-11-29T12:21:13.397884+00:00]>, balance_id=1)>,)
+2016-11-29 12:21:13.399 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: n_pending_measurements: 1 [thread Dummy-8]
+2016-11-29 12:21:13.413 starfeeder.serial_controller:DEBUG: rfid0:SerialReader.process_data: data: b'Z5A2080A70C2C0001\r\n' [thread Dummy-5]
+2016-11-29 12:21:13.413 starfeeder.serial_controller:DEBUG: rfid0:SerialReader.process_data: line: b'Z5A2080A70C2C0001' [thread Dummy-5]
+2016-11-29 12:21:13.413 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fadd1e677c8>, thread name=Dummy-5, signal='2line_received(PyObject,PyObject)', args=(b'Z5A2080A70C2C0001', <Arrow [2016-11-29T12:21:13.413495+00:00]>)
+2016-11-29 12:21:13.414 starfeeder.serial_controller:DEBUG: rfid0:RfidController.on_receive: Receiving at 2016-11-29T12:21:13.413495+00:00: 'Z5A2080A70C2C0001' [thread Dummy-7]
+2016-11-29 12:21:13.415 starfeeder.serial_controller:DEBUG: rfid0:RfidController.on_receive: rfid number = 208210000479322 [thread Dummy-7]
+2016-11-29 12:21:13.415 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.rfid.RfidController object at 0x7fadd1e77e08>, thread name=Dummy-7, signal='2rfid_received(PyObject)', args=(<RfidEvent(rfid=208210000479322, reader_id=2, reader_name='rfid0', timestamp=<Arrow [2016-11-29T12:21:13.413495+00:00]>)>,)
+2016-11-29 12:21:13.438 whisker.qtclient:DEBUG: whisker_controller:WhiskerController.sendline_immsock: Sending to server (IMM): SendToClient -1 starfeederRFID_EVENT: reader rfid0, RFID 208210000479322, timestamp 2016-11-29T12:21:13.413495+00:00 [thread Dummy-2]
+2016-11-29 12:21:13.439 whisker.qtclient:DEBUG: whisker_controller:WhiskerController.getline_immsock: Reply from server (IMM): Success [thread Dummy-2]
+2016-11-29 12:21:13.571 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: data: b'1\r\n' [thread Dummy-6]
+2016-11-29 12:21:13.571 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: line: b'1' [thread Dummy-6]
+2016-11-29 12:21:13.572 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fadd1e7b248>, thread name=Dummy-6, signal='2line_received(PyObject,PyObject)', args=(b'1', <Arrow [2016-11-29T12:21:13.571358+00:00]>)
+2016-11-29 12:21:13.572 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: Balance receiving at 2016-11-29T12:21:13.571358+00:00: '1' (most recent command was: MSV?) [thread Dummy-8]
+2016-11-29 12:21:13.572 starfeeder.serial_controller:DEBUG: balance0:BalanceController.process_value: BALANCE VALUE: 1 =>  0.001000 kg [thread Dummy-8]
+2016-11-29 12:21:13.573 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fadd1e7f588>, thread name=Dummy-8, signal='2mass_received(PyObject)', args=(<MassEvent(rfid=208210000479322, stable=True, reader_id=2, locked=False, mass_kg=0.001, balance_name='balance0', reader_name='rfid0', timestamp=<Arrow [2016-11-29T12:21:13.571358+00:00]>, balance_id=1)>,)
+2016-11-29 12:21:13.573 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: n_pending_measurements: 0 [thread Dummy-8]
+2016-11-29 12:21:13.573 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: Finished measuring; restarting [thread Dummy-8]
+2016-11-29 12:21:13.573 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fadd1e7f588>, thread name=Dummy-8, signal='2data_send_requested(PyObject,int)', args=('MSV?3', 0)
+2016-11-29 12:21:13.574 starfeeder.serial_controller:DEBUG: balance0:SerialWriter._send: sending: b'MSV?3;' [thread Dummy-4]
+2016-11-29 12:21:13.575 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: data: b'0\r\n' [thread Dummy-6]
+2016-11-29 12:21:13.576 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: line: b'0' [thread Dummy-6]
+2016-11-29 12:21:13.576 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fadd1e7b248>, thread name=Dummy-6, signal='2line_received(PyObject,PyObject)', args=(b'0', <Arrow [2016-11-29T12:21:13.576145+00:00]>)
+2016-11-29 12:21:13.577 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: Balance receiving at 2016-11-29T12:21:13.576145+00:00: '0' (most recent command was: MSV?) [thread Dummy-8]
+2016-11-29 12:21:13.577 starfeeder.serial_controller:DEBUG: balance0:BalanceController.process_value: BALANCE VALUE: 0 =>  0.000000 kg [thread Dummy-8]
+2016-11-29 12:21:13.577 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fadd1e7f588>, thread name=Dummy-8, signal='2mass_received(PyObject)', args=(<MassEvent(rfid=208210000479322, stable=True, reader_id=2, locked=False, mass_kg=0.0, balance_name='balance0', reader_name='rfid0', timestamp=<Arrow [2016-11-29T12:21:13.576145+00:00]>, balance_id=1)>,)
+2016-11-29 12:21:13.578 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: n_pending_measurements: 2 [thread Dummy-8]
+2016-11-29 12:21:13.748 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: data: b'0\r\n' [thread Dummy-6]
+2016-11-29 12:21:13.749 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: line: b'0' [thread Dummy-6]
+2016-11-29 12:21:13.749 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fadd1e7b248>, thread name=Dummy-6, signal='2line_received(PyObject,PyObject)', args=(b'0', <Arrow [2016-11-29T12:21:13.749184+00:00]>)
+2016-11-29 12:21:13.750 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: Balance receiving at 2016-11-29T12:21:13.749184+00:00: '0' (most recent command was: MSV?) [thread Dummy-8]
+2016-11-29 12:21:13.750 starfeeder.serial_controller:DEBUG: balance0:BalanceController.process_value: BALANCE VALUE: 0 =>  0.000000 kg [thread Dummy-8]
+2016-11-29 12:21:13.750 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fadd1e7f588>, thread name=Dummy-8, signal='2mass_received(PyObject)', args=(<MassEvent(rfid=208210000479322, stable=True, reader_id=2, locked=False, mass_kg=0.0, balance_name='balance0', reader_name='rfid0', timestamp=<Arrow [2016-11-29T12:21:13.749184+00:00]>, balance_id=1)>,)
+2016-11-29 12:21:13.751 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: n_pending_measurements: 1 [thread Dummy-8]
+===============================================================================
+Uncaught exception in slot, within thread: Dummy-2
+-------------------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/rudolf/dev/venvs/starfeeder/lib/python3.4/site-packages/whisker/qt.py", line 1126, in with_exit_on_exception
+    return func(*args, **kwargs)
+  File "/home/rudolf/Documents/code/whisker_starfeeder/starfeeder/task.py", line 113, in on_mass
+    if not mass_event.locked or mass_event.rfid is None:
+AttributeError: 'MassEvent' object has no attribute 'locked'
+-------------------------------------------------------------------------------
+args: <starfeeder.task.WeightWhiskerTask object at 0x7fadd4457d48>, <operator.attrgetter object at 0x7fadd01cf208>
+kwargs: {}
+===============================================================================
+Segmentation fault (core dumped)
+
+
+
+At this point, the receiving function looks like:
+
+    @exit_on_exception
+    def on_mass(self, mass_event: MassEvent) -> None:
+        """
+        Receive a mass event. Ask the MassIdentifiedEvent class to work out if
+        it represents an identified mass event (and store it, if so).
+        Broadcast the information to the Whisker client.
+        """
+        if not isinstance(mass_event, MassEvent):                                   # TYPE CHECK HERE
+            log.critical("Bad mass_event: {}".format(mass_event))
+            return
+        if not mass_event.locked or mass_event.rfid is None:                        # CRASH HERE
+            return
+        with session_thread_scope(self.dbsettings) as session:
+            MassEventRecord.record_mass_detection(session, mass_event)
+        if self.whisker.is_connected():
+            self.broadcast(
+                "MASS_EVENT: reader {reader}, RFID {rfid}, balance {balance}, "
+                "mass {mass_kg} kg, timestamp {timestamp}".format(
+                    reader=mass_event.reader_name,
+                    rfid=mass_event.rfid,
+                    balance=mass_event.balance_name,
+                    mass_kg=mass_event.mass_kg,
+                    timestamp=mass_event.timestamp,
+                )
+            )
+
+
+
+... is the object vanishing from a different thread?
+... a MassEvent is a simple (Python) object
+... but note that the error message relates to 'MassEvent', not mass_event,
+    i.e. the receiving function knows the type, correctly
+
+Signal sequence is:
+
+    BalanceController.process_value         # creates the MassEvent                 # THREAD Dummy-8; this is the "controllerthread"
+    -> BalanceController.mass_received                                              # ditto
+    -> BalanceOwner.mass_received                                                   # GUI thread
+    -> WeightWhiskerTask.on_mass                                                    # whiskertaskthread
+
+Looks like the problem may be an interaction between the Python garbage
+collector, PySide's signals (and they way they don't but should prevent their
+parameters from being garbage-collected whilst in use), and threads.
+
+See dev_notes.txt.
+Resolved, I think, by moving the garbage collector to a timer on the GUI thread
+only, and preventing spontaneous garbage collection.
