@@ -33,7 +33,7 @@ from typing import Optional
 
 import arrow
 import bitstring
-from PySide.QtCore import QObject, Signal
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 import serial
 from whisker.lang import CompiledRegexMemory
 from whisker.qt import exit_on_exception
@@ -41,6 +41,7 @@ from whisker.qt import exit_on_exception
 from starfeeder.constants import (
     BALANCE_ASF_MINIMUM,
     BALANCE_ASF_MAXIMUM,
+    DEFAULT_BALANCE_READ_FREQUENCY_HZ,
     GUI_MASS_FORMAT,
 )
 from starfeeder.models import (
@@ -78,7 +79,7 @@ CMD_DEACTIVATE_OUTPUT_SCALING = "NOV0"  # p31
 CMD_QUERY_OUTPUT_SCALING = "NOV?"  # p31
 CMD_TARE = "TAR"  # p41
 CMD_MEASUREMENT_RATE = "ICR"  # p40; "Mv/s" = measured values per second
-RATE_MAP_HZ_TO_CODE = {
+RATE_MAP_HZ_TO_CODE = {  # p40
     100: 0,
     50: 1,
     25: 2,
@@ -112,9 +113,9 @@ COMMAND_SEPARATOR = b";"
 # ... the balance doesn't actually work out any mass for you.
 
 
-class BalanceController(SerialController):
-    mass_received = Signal(MassEvent)
-    calibrated = Signal(CalibrationReport)
+class BalanceController(SerialController):  # separate controller thread
+    mass_received = pyqtSignal(MassEvent)
+    calibrated = pyqtSignal(CalibrationReport)
 
     def __init__(self,
                  balance_config: BalanceConfig,
@@ -142,6 +143,7 @@ class BalanceController(SerialController):
         self.pending_tare = False
         self.locked = False
 
+    @pyqtSlot()
     @exit_on_exception
     def on_start(self) -> None:
         self.reset()
@@ -197,8 +199,17 @@ class BalanceController(SerialController):
         self.send(CMD_FILTER_TYPE,
                   1 if self.balance_config.fast_response_filter else 0)
         # noinspection PyTypeChecker
-        self.send(CMD_MEASUREMENT_RATE, RATE_MAP_HZ_TO_CODE.get(
-            self.balance_config.measurement_rate_hz))
+        if self.balance_config.measurement_rate_hz not in RATE_MAP_HZ_TO_CODE:
+            self.error(
+                "Measurement rate {} is invalid; defaulting to {}".format(
+                    self.balance_config.measurement_rate_hz,
+                    DEFAULT_BALANCE_READ_FREQUENCY_HZ))
+            frequency_code = RATE_MAP_HZ_TO_CODE.get(
+                DEFAULT_BALANCE_READ_FREQUENCY_HZ)
+        else:
+            frequency_code = RATE_MAP_HZ_TO_CODE.get(
+                self.balance_config.measurement_rate_hz)
+        self.send(CMD_MEASUREMENT_RATE, str(frequency_code))
         self.start_measuring()
 
     def start_measuring(self) -> None:
@@ -216,6 +227,7 @@ class BalanceController(SerialController):
         if self.n_pending_measurements == 0 and now < self.rfid_event_expires:
             self.start_measuring()
 
+    @pyqtSlot()
     @exit_on_exception
     def tare(self) -> None:
         # Don't use hardware tare:
@@ -227,12 +239,14 @@ class BalanceController(SerialController):
         if self.n_pending_measurements == 0:
             self.start_measuring()
 
+    @pyqtSlot()
     @exit_on_exception
     def calibrate(self) -> None:
         self.pending_calibrate = True
         if self.n_pending_measurements == 0:
             self.start_measuring()
 
+    @pyqtSlot()
     @exit_on_exception
     def ping(self) -> None:
         self.check_calibrated()
@@ -249,6 +263,7 @@ class BalanceController(SerialController):
                               if x != CMD_QUERY_MEASURE]
         self.n_pending_measurements = 0
 
+    @pyqtSlot()
     @exit_on_exception
     def on_stop(self) -> None:
         self.stop_measuring()
@@ -355,6 +370,7 @@ class BalanceController(SerialController):
         self.calibrated.emit(report)
         self.check_calibrated()
 
+    @pyqtSlot(RfidEvent)
     @exit_on_exception
     def on_rfid(self, rfid_event: RfidEvent) -> None:
         if not isinstance(rfid_event, RfidEvent):
@@ -366,6 +382,7 @@ class BalanceController(SerialController):
         self.rfid_event_rfid = rfid_event.rfid
         self.read_until(rfid_event_expires)
 
+    @pyqtSlot(bytes, arrow.Arrow)
     @exit_on_exception
     def on_receive(self, data: bytes, timestamp: arrow.Arrow) -> None:
         if not isinstance(data, bytes):
@@ -455,15 +472,15 @@ class BalanceController(SerialController):
                     repr(data), repr(cmd)))
 
 
-class BalanceOwner(SerialOwner):
+class BalanceOwner(SerialOwner):  # GUI thread
     # Outwards, to world:
-    mass_received = Signal(MassEvent)
-    calibrated = Signal(CalibrationReport)
+    mass_received = pyqtSignal(MassEvent)
+    calibrated = pyqtSignal(CalibrationReport)
     # Inwards, to posessions:
-    ping_requested = Signal()
-    tare_requested = Signal()
-    calibration_requested = Signal()
-    on_rfid = Signal(RfidEvent)
+    ping_requested = pyqtSignal()
+    tare_requested = pyqtSignal()
+    calibration_requested = pyqtSignal()
+    on_rfid = pyqtSignal(RfidEvent)
 
     def __init__(self,
                  balance_config: BalanceConfig,
@@ -495,9 +512,10 @@ class BalanceOwner(SerialOwner):
         self.ping_requested.connect(self.controller.ping)
         self.tare_requested.connect(self.controller.tare)
         self.calibration_requested.connect(self.controller.calibrate)
-        self.on_rfid.connect(self.controller.on_rfid)
-        self.controller.mass_received.connect(self.mass_received)
-        self.controller.calibrated.connect(self.calibrated)
+
+        self.on_rfid.connect(self.controller.on_rfid)  # different thread
+        self.controller.mass_received.connect(self.mass_received)  # different thread  # noqa
+        self.controller.calibrated.connect(self.calibrated)  # different thread
 
     def ping(self) -> None:
         self.ping_requested.emit()

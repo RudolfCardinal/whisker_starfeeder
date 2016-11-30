@@ -113,3 +113,187 @@ parameters from being garbage-collected whilst in use), and threads.
 See dev_notes.txt.
 Resolved, I think, by moving the garbage collector to a timer on the GUI thread
 only, and preventing spontaneous garbage collection.
+
+
+
+==================== crash again; plain segfault this time
+
+after "ulimit -c unlimited":
+
+
+...
+2016-11-29 18:50:02.065 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d1bc8>, thread name=Dummy-23, signal='2mass_received(PyObject)', args=(<MassEvent(balance_name='balance0', reader_id=2, timestamp=<Arrow [2016-11-29T18:50:02.063473+00:00]>, mass_kg=0.35, stable=True, locked=False, reader_name='rfid0', balance_id=1, rfid=208210000479322)>,)
+2016-11-29 18:50:02.065 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: n_pending_measurements: 1 [thread Dummy-23]
+2016-11-29 18:50:02.067 whisker.qtclient:DEBUG: whisker_controller:WhiskerController.sendline_immsock: Sending to server (IMM): SendToClient -1 starfeederRFID_EVENT: reader rfid0, RFID 208210000479322, timestamp 2016-11-29T18:50:02.038156+00:00 [thread Dummy-2]
+2016-11-29 18:50:02.069 whisker.qtclient:DEBUG: whisker_controller:WhiskerController.getline_immsock: Reply from server (IMM): Success [thread Dummy-2]
+2016-11-29 18:50:02.078 starfeeder.serial_controller:DEBUG: balance_37:SerialReader.process_data: data: b'350\r\n' [thread Dummy-17]
+2016-11-29 18:50:02.078 starfeeder.serial_controller:DEBUG: balance_37:SerialReader.process_data: line: b'350' [thread Dummy-17]
+2016-11-29 18:50:02.078 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fc9385d9648>, thread name=Dummy-17, signal='2line_received(PyObject,PyObject)', args=(b'350', <Arrow [2016-11-29T18:50:02.078389+00:00]>)
+2016-11-29 18:50:02.079 starfeeder.serial_controller:DEBUG: balance_37:BalanceController.on_receive: Balance receiving at 2016-11-29T18:50:02.078389+00:00: '350' (most recent command was: MSV?) [thread Dummy-25]
+2016-11-29 18:50:02.079 starfeeder.serial_controller:DEBUG: balance_37:BalanceController.process_value: BALANCE VALUE: 350 =>  0.350000 kg [thread Dummy-25]
+2016-11-29 18:50:02.079 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d9748>, thread name=Dummy-25, signal='2mass_received(PyObject)', args=(<MassEvent(balance_name='balance_37', reader_id=4, timestamp=<Arrow [2016-11-29T18:50:02.078389+00:00]>, mass_kg=0.35, stable=True, locked=False, reader_name='rfid_33', balance_id=3, rfid=208210000479322)>,)
+2016-11-29 18:50:02.080 starfeeder.serial_controller:DEBUG: balance_37:BalanceController.on_receive: n_pending_measurements: 1 [thread Dummy-25]
+2016-11-29 18:50:02.089 starfeeder.serial_controller:DEBUG: balance_39:SerialReader.process_data: data: b'450\r\n' [thread Dummy-18]
+2016-11-29 18:50:02.090 starfeeder.serial_controller:DEBUG: balance_39:SerialReader.process_data: line: b'450' [thread Dummy-18]
+2016-11-29 18:50:02.090 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fc9385d9d08>, thread name=Dummy-18, signal='2line_received(PyObject,PyObject)', args=(b'450', <Arrow [2016-11-29T18:50:02.089864+00:00]>)
+2016-11-29 18:50:02.090 starfeeder.serial_controller:DEBUG: balance_39:BalanceController.on_receive: Balance receiving at 2016-11-29T18:50:02.089864+00:00: '450' (most recent command was: MSV?) [thread Dummy-26]
+2016-11-29 18:50:02.090 starfeeder.serial_controller:DEBUG: balance_39:BalanceController.process_value: BALANCE VALUE: 450 =>  0.450000 kg [thread Dummy-26]
+2016-11-29 18:50:02.091 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d9e08>, thread name=Dummy-26, signal='2mass_received(PyObject)', args=(<MassEvent(balance_name='balance_39', reader_id=5, timestamp=<Arrow [2016-11-29T18:50:02.089864+00:00]>, mass_kg=0.45, stable=True, locked=False, reader_name='rfid_31', balance_id=4, rfid=900046000071672)>,)
+2016-11-29 18:50:02.091 starfeeder.serial_controller:DEBUG: balance_39:BalanceController.on_receive: n_pending_measurements: 1 [thread Dummy-26]
+2016-11-29 18:50:02.136 starfeeder.serial_controller:DEBUG: balance_35:SerialReader.process_data: data: b'450\r\n' [thread Dummy-16]
+2016-11-29 18:50:02.136 starfeeder.serial_controller:DEBUG: balance_35:SerialReader.process_data: line: b'450' [thread Dummy-16]
+2016-11-29 18:50:02.136 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fc9385d1f48>, thread name=Dummy-16, signal='2line_received(PyObject,PyObject)', args=(b'450', <Arrow [2016-11-29T18:50:02.136435+00:00]>)
+2016-11-29 18:50:02.137 starfeeder.serial_controller:DEBUG: balance_35:BalanceController.on_receive: Balance receiving at 2016-11-29T18:50:02.136435+00:00: '450' (most recent command was: MSV?) [thread Dummy-24]
+2016-11-29 18:50:02.137 starfeeder.serial_controller:DEBUG: balance_35:BalanceController.process_value: BALANCE VALUE: 450 =>  0.454545 kg [thread Dummy-24]
+2016-11-29 18:50:02.137 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d1c08>, thread name=Dummy-24, signal='2mass_received(PyObject)', args=(<MassEvent(balance_name='balance_35', reader_id=3, timestamp=<Arrow [2016-11-29T18:50:02.136435+00:00]>, mass_kg=0.45454545454545453, stable=True, locked=False, reader_name='rfid_29', balance_id=2, rfid=900046000071672)>,)
+2016-11-29 18:50:02.138 starfeeder.serial_controller:DEBUG: balance_35:BalanceController.on_receive: n_pending_measurements: 0 [thread Dummy-24]
+2016-11-29 18:50:02.138 starfeeder.serial_controller:DEBUG: balance_35:BalanceController.on_receive: Finished measuring; restarting [thread Dummy-24]
+2016-11-29 18:50:02.138 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d1c08>, thread name=Dummy-24, signal='2data_send_requested(PyObject,int)', args=('MSV?6', 0)
+2016-11-29 18:50:02.139 starfeeder.serial_controller:DEBUG: balance_35:SerialWriter._send: sending: b'MSV?6;' [thread Dummy-8]
+2016-11-29 18:50:02.139 starfeeder.serial_controller:DEBUG: rfid0:SerialReader.process_data: data: b'Z5A2080A70C2C0001\r\n' [thread Dummy-11]
+2016-11-29 18:50:02.140 starfeeder.serial_controller:DEBUG: rfid0:SerialReader.process_data: line: b'Z5A2080A70C2C0001' [thread Dummy-11]
+2016-11-29 18:50:02.140 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fc93c94ea08>, thread name=Dummy-11, signal='2line_received(PyObject,PyObject)', args=(b'Z5A2080A70C2C0001', <Arrow [2016-11-29T18:50:02.139841+00:00]>)
+2016-11-29 18:50:02.140 starfeeder.serial_controller:DEBUG: rfid0:RfidController.on_receive: Receiving at 2016-11-29T18:50:02.139841+00:00: 'Z5A2080A70C2C0001' [thread Dummy-19]
+2016-11-29 18:50:02.141 starfeeder.serial_controller:DEBUG: rfid0:RfidController.on_receive: rfid number = 208210000479322 [thread Dummy-19]
+2016-11-29 18:50:02.141 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.rfid.RfidController object at 0x7fc93c961748>, thread name=Dummy-19, signal='2rfid_received(PyObject)', args=(<RfidEvent(reader_id=2, timestamp=<Arrow [2016-11-29T18:50:02.139841+00:00]>, reader_name='rfid0', rfid=208210000479322)>,)
+2016-11-29 18:50:02.142 starfeeder.serial_controller:DEBUG: balance_35:SerialReader.process_data: data: b'450\r\n' [thread Dummy-16]
+2016-11-29 18:50:02.142 starfeeder.serial_controller:DEBUG: balance_35:SerialReader.process_data: line: b'450' [thread Dummy-16]
+2016-11-29 18:50:02.143 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fc9385d1f48>, thread name=Dummy-16, signal='2line_received(PyObject,PyObject)', args=(b'450', <Arrow [2016-11-29T18:50:02.142611+00:00]>)
+2016-11-29 18:50:02.143 starfeeder.serial_controller:DEBUG: balance_35:BalanceController.on_receive: Balance receiving at 2016-11-29T18:50:02.142611+00:00: '450' (most recent command was: MSV?) [thread Dummy-24]
+2016-11-29 18:50:02.144 starfeeder.serial_controller:DEBUG: balance_35:BalanceController.process_value: BALANCE VALUE: 450 =>  0.454545 kg [thread Dummy-24]
+2016-11-29 18:50:02.146 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d1c08>, thread name=Dummy-24, signal='2mass_received(PyObject)', args=(<MassEvent(balance_name='balance_35', reader_id=3, timestamp=<Arrow [2016-11-29T18:50:02.142611+00:00]>, mass_kg=0.45454545454545453, stable=True, locked=False, reader_name='rfid_29', balance_id=2, rfid=900046000071672)>,)
+2016-11-29 18:50:02.147 starfeeder.serial_controller:DEBUG: balance_35:BalanceController.on_receive: n_pending_measurements: 5 [thread Dummy-24]
+2016-11-29 18:50:02.154 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: data: b'349\r\n' [thread Dummy-15]
+2016-11-29 18:50:02.156 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: line: b'349' [thread Dummy-15]
+2016-11-29 18:50:02.156 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fc9385c7088>, thread name=Dummy-15, signal='2line_received(PyObject,PyObject)', args=(b'349', <Arrow [2016-11-29T18:50:02.155949+00:00]>)
+2016-11-29 18:50:02.158 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: Balance receiving at 2016-11-29T18:50:02.155949+00:00: '349' (most recent command was: MSV?) [thread Dummy-23]
+2016-11-29 18:50:02.159 starfeeder.serial_controller:DEBUG: balance0:BalanceController.process_value: BALANCE VALUE: 349 =>  0.349000 kg [thread Dummy-23]
+2016-11-29 18:50:02.159 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d1bc8>, thread name=Dummy-23, signal='2mass_received(PyObject)', args=(<MassEvent(balance_name='balance0', reader_id=2, timestamp=<Arrow [2016-11-29T18:50:02.155949+00:00]>, mass_kg=0.349, stable=True, locked=False, reader_name='rfid0', balance_id=1, rfid=208210000479322)>,)
+2016-11-29 18:50:02.159 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: n_pending_measurements: 0 [thread Dummy-23]
+2016-11-29 18:50:02.159 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: Finished measuring; restarting [thread Dummy-23]
+2016-11-29 18:50:02.160 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d1bc8>, thread name=Dummy-23, signal='2data_send_requested(PyObject,int)', args=('MSV?6', 0)
+2016-11-29 18:50:02.163 starfeeder.serial_controller:DEBUG: balance0:SerialWriter._send: sending: b'MSV?6;' [thread Dummy-7]
+2016-11-29 18:50:02.165 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: data: b'350\r\n' [thread Dummy-15]
+2016-11-29 18:50:02.165 starfeeder.serial_controller:DEBUG: balance0:SerialReader.process_data: line: b'350' [thread Dummy-15]
+2016-11-29 18:50:02.166 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fc9385c7088>, thread name=Dummy-15, signal='2line_received(PyObject,PyObject)', args=(b'350', <Arrow [2016-11-29T18:50:02.165678+00:00]>)
+2016-11-29 18:50:02.166 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: Balance receiving at 2016-11-29T18:50:02.165678+00:00: '350' (most recent command was: MSV?) [thread Dummy-23]
+2016-11-29 18:50:02.166 starfeeder.serial_controller:DEBUG: balance0:BalanceController.process_value: BALANCE VALUE: 350 =>  0.350000 kg [thread Dummy-23]
+2016-11-29 18:50:02.167 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d1bc8>, thread name=Dummy-23, signal='2mass_received(PyObject)', args=(<MassEvent(balance_name='balance0', reader_id=2, timestamp=<Arrow [2016-11-29T18:50:02.165678+00:00]>, mass_kg=0.35, stable=True, locked=False, reader_name='rfid0', balance_id=1, rfid=208210000479322)>,)
+2016-11-29 18:50:02.167 starfeeder.serial_controller:DEBUG: balance0:BalanceController.on_receive: n_pending_measurements: 5 [thread Dummy-23]
+2016-11-29 18:50:02.168 whisker.qtclient:DEBUG: whisker_controller:WhiskerController.sendline_immsock: Sending to server (IMM): SendToClient -1 starfeederRFID_EVENT: reader rfid0, RFID 208210000479322, timestamp 2016-11-29T18:50:02.139841+00:00 [thread Dummy-2]
+2016-11-29 18:50:02.169 starfeeder.serial_controller:DEBUG: balance_37:SerialReader.process_data: data: b'350\r\n' [thread Dummy-17]
+2016-11-29 18:50:02.170 starfeeder.serial_controller:DEBUG: balance_37:SerialReader.process_data: line: b'350' [thread Dummy-17]
+2016-11-29 18:50:02.170 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.serial_controller.SerialReader object at 0x7fc9385d9648>, thread name=Dummy-17, signal='2line_received(PyObject,PyObject)', args=(b'350', <Arrow [2016-11-29T18:50:02.170105+00:00]>)
+2016-11-29 18:50:02.171 starfeeder.serial_controller:DEBUG: balance_37:BalanceController.on_receive: Balance receiving at 2016-11-29T18:50:02.170105+00:00: '350' (most recent command was: MSV?) [thread Dummy-25]
+2016-11-29 18:50:02.171 whisker.qtclient:DEBUG: whisker_controller:WhiskerController.getline_immsock: Reply from server (IMM): Success [thread Dummy-2]
+2016-11-29 18:50:02.171 starfeeder.serial_controller:DEBUG: balance_37:BalanceController.process_value: BALANCE VALUE: 350 =>  0.350000 kg [thread Dummy-25]
+2016-11-29 18:50:02.171 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d9748>, thread name=Dummy-25, signal='2mass_received(PyObject)', args=(<MassEvent(balance_name='balance_37', reader_id=4, timestamp=<Arrow [2016-11-29T18:50:02.170105+00:00]>, mass_kg=0.35, stable=True, locked=False, reader_name='rfid_33', balance_id=3, rfid=208210000479322)>,)
+2016-11-29 18:50:02.172 starfeeder.serial_controller:DEBUG: balance_37:BalanceController.on_receive: n_pending_measurements: 0 [thread Dummy-25]
+2016-11-29 18:50:02.172 starfeeder.serial_controller:DEBUG: balance_37:BalanceController.on_receive: Finished measuring; restarting [thread Dummy-25]
+2016-11-29 18:50:02.172 whisker.debug_qt:DEBUG: EMIT: emitter=<starfeeder.balance.BalanceController object at 0x7fc9385d9748>, thread name=Dummy-25, signal='2data_send_requested(PyObject,int)', args=('MSV?6', 0)
+Segmentation fault (core dumped)
+(starfeeder) rudolf@wombat:~/Documents/code/whisker_starfeeder$
+
+$ gdb --args python -m starfeeder
+(gdb) core starfeeder/core
+warning: core file may not match specified executable file.
+[New LWP 4889]
+[New LWP 4883]
+[New LWP 4882]
+[New LWP 4885]
+[New LWP 4897]
+[New LWP 4881]
+[New LWP 4890]
+[New LWP 4892]
+[New LWP 4887]
+[New LWP 4884]
+[New LWP 4900]
+[New LWP 4904]
+[New LWP 4886]
+[New LWP 4901]
+[New LWP 4894]
+[New LWP 4907]
+[New LWP 4893]
+[New LWP 4903]
+[New LWP 4906]
+[New LWP 4902]
+[New LWP 23363]
+[New LWP 4896]
+[New LWP 4899]
+[New LWP 4895]
+[New LWP 4905]
+[New LWP 4898]
+[New LWP 4888]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+Core was generated by `/home/rudolf/dev/venvs/starfeeder/bin/python3.4 /home/rudolf/dev/venvs/starfeed'.
+Program terminated with signal SIGSEGV, Segmentation fault.
+#0  PyObject_GetAttr (v=0x7ff4e0561fd0, name=0x7ff4fa9b7d70) at Objects/object.c:873
+873	        return (*tp->tp_getattro)(v, name);
+[Current thread is 1 (Thread 0x7ff4bb7fe700 (LWP 4889))]
+(gdb) bt
+#0  PyObject_GetAttr (v=0x7ff4e0561fd0, name=0x7ff4fa9b7d70) at Objects/object.c:873
+#1  0x00007ff4fa3fe24d in _PyObject_GetAttrId (v=<optimised out>, name=<optimised out>) at Objects/object.c:835
+#2  0x00007ff4fa3afe10 in recursive_isinstance (cls=0x2d2af38, inst=0x7ff4e0561fd0) at Objects/abstract.c:2466
+#3  _PyObject_RealIsInstance (inst=0x7ff4e0561fd0, cls=0x2d2af38) at Objects/abstract.c:2622
+#4  0x00007ff4fa40f012 in type___instancecheck__ (type=<optimised out>, inst=<optimised out>) at Objects/typeobject.c:798
+#5  0x00007ff4fa3ae0a8 in PyObject_Call (func=func@entry=0x7ff4e06a1a88, arg=arg@entry=0x7ff4e068f080, kw=kw@entry=0x0) at Objects/abstract.c:2058
+#6  0x00007ff4fa3af33f in PyObject_CallFunctionObjArgs (callable=callable@entry=0x7ff4e06a1a88) at Objects/abstract.c:2350
+#7  0x00007ff4fa3af80e in PyObject_IsInstance (inst=0x7ff4e0561fd0, cls=0x2d2af38) at Objects/abstract.c:2540
+#8  0x00007ff4fa48008a in builtin_isinstance (self=<optimised out>, args=<optimised out>) at Python/bltinmodule.c:2187
+#9  0x00007ff4fa48b5bc in call_function (oparg=<optimised out>, pp_stack=0x7ff4bb7fd190) at Python/ceval.c:4237
+#10 PyEval_EvalFrameEx (f=f@entry=0x7ff4cc00f518, throwflag=throwflag@entry=0) at Python/ceval.c:2838
+#11 0x00007ff4fa48c842 in PyEval_EvalCodeEx (_co=0x7ff4ed61aed0, globals=<optimised out>, locals=locals@entry=0x0, args=args@entry=0x7ff4e091aba0,
+    argcount=2, kws=kws@entry=0x7ff4fa9b6060, kwcount=0, defs=0x0, defcount=0, kwdefs=0x0, closure=0x0) at Python/ceval.c:3588
+#12 0x00007ff4fa3dcfbd in function_call (func=0x7ff4ed62a268, arg=0x7ff4e091ab88, kw=0x7ff4e06b7e88) at Objects/funcobject.c:632
+#13 0x00007ff4fa3ae0a8 in PyObject_Call (func=func@entry=0x7ff4ed62a268, arg=arg@entry=0x7ff4e091ab88, kw=kw@entry=0x7ff4e06b7e88)
+    at Objects/abstract.c:2058
+#14 0x00007ff4fa487fce in ext_do_call (nk=<optimised out>, na=0, flags=<optimised out>, pp_stack=0x7ff4bb7fd448, func=0x7ff4ed62a268)
+    at Python/ceval.c:4561
+#15 PyEval_EvalFrameEx (f=f@entry=0x7ff488005578, throwflag=throwflag@entry=0) at Python/ceval.c:2878
+#16 0x00007ff4fa48c842 in PyEval_EvalCodeEx (_co=0x7ff4ed7b9660, globals=<optimised out>, locals=locals@entry=0x0, args=args@entry=0x7ff4e00b1e60,
+    argcount=2, kws=kws@entry=0x0, kwcount=0, defs=0x0, defcount=0, kwdefs=0x0, closure=0x7ff4ed6273c8) at Python/ceval.c:3588
+#17 0x00007ff4fa3dcec8 in function_call (func=0x7ff4ed62a2f0, arg=0x7ff4e00b1e48, kw=0x0) at Objects/funcobject.c:632
+#18 0x00007ff4fa3ae0a8 in PyObject_Call (func=func@entry=0x7ff4ed62a2f0, arg=arg@entry=0x7ff4e00b1e48, kw=kw@entry=0x0) at Objects/abstract.c:2058
+#19 0x00007ff4fa3c6534 in method_call (func=0x7ff4ed62a2f0, arg=0x7ff4e00b1e48, kw=0x0) at Objects/classobject.c:347
+#20 0x00007ff4fa3ae0a8 in PyObject_Call (func=func@entry=0x7ff4e4d22208, arg=arg@entry=0x7ff4e4c86898, kw=<optimised out>)
+    at Objects/abstract.c:2058
+#21 0x00007ff4fa483d17 in PyEval_CallObjectWithKeywords (func=0x7ff4e4d22208, arg=0x7ff4e4c86898, kw=<optimised out>) at Python/ceval.c:4114
+#22 0x00007ff4f5764329 in PySide::SignalManager::callPythonMetaMethod(QMetaMethod const&, void**, _object*, bool) ()
+   from /home/rudolf/dev/venvs/starfeeder/lib/python3.4/site-packages/PySide/libpyside.cpython-34m.so.1.2
+#23 0x00007ff4f576476a in PySide::SignalManager::qt_metacall(QObject*, QMetaObject::Call, int, void**) ()
+   from /home/rudolf/dev/venvs/starfeeder/lib/python3.4/site-packages/PySide/libpyside.cpython-34m.so.1.2
+#24 0x00007ff4f51d6db1 in QObject::event(QEvent*) () from /usr/lib/x86_64-linux-gnu/libQtCore.so.4
+#25 0x00007ff4f5a9f773 in QObjectWrapper::event(QEvent*) () from /home/rudolf/dev/venvs/starfeeder/lib/python3.4/site-packages/PySide/QtCore.so
+#26 0x00007ff4f2862fdc in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /usr/lib/x86_64-linux-gnu/libQtGui.so.4
+#27 0x00007ff4f2869f16 in QApplication::notify(QObject*, QEvent*) () from /usr/lib/x86_64-linux-gnu/libQtGui.so.4
+#28 0x00007ff4f357f0d6 in QApplicationWrapper::notify(QObject*, QEvent*) ()
+   from /home/rudolf/dev/venvs/starfeeder/lib/python3.4/site-packages/PySide/QtGui.so
+#29 0x00007ff4f51bc90d in QCoreApplication::notifyInternal(QObject*, QEvent*) () from /usr/lib/x86_64-linux-gnu/libQtCore.so.4
+#30 0x00007ff4f51c03c6 in QCoreApplicationPrivate::sendPostedEvents(QObject*, int, QThreadData*) () from /usr/lib/x86_64-linux-gnu/libQtCore.so.4
+#31 0x00007ff4f51ed13e in ?? () from /usr/lib/x86_64-linux-gnu/libQtCore.so.4
+#32 0x00007ff4f47d31a7 in g_main_context_dispatch () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#33 0x00007ff4f47d3400 in ?? () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#34 0x00007ff4f47d34ac in g_main_context_iteration () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#35 0x00007ff4f51ed2ae in QEventDispatcherGlib::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) ()
+   from /usr/lib/x86_64-linux-gnu/libQtCore.so.4
+#36 0x00007ff4f51bb18f in QEventLoop::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /usr/lib/x86_64-linux-gnu/libQtCore.so.4
+#37 0x00007ff4f51bb4f5 in QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>) () from /usr/lib/x86_64-linux-gnu/libQtCore.so.4
+#38 0x00007ff4f50aa549 in QThread::exec() () from /usr/lib/x86_64-linux-gnu/libQtCore.so.4
+#39 0x00007ff4f5b19ea8 in QThreadWrapper::run() () from /home/rudolf/dev/venvs/starfeeder/lib/python3.4/site-packages/PySide/QtCore.so
+#40 0x00007ff4f50ace3c in ?? () from /usr/lib/x86_64-linux-gnu/libQtCore.so.4
+#41 0x00007ff4fa13070a in start_thread (arg=0x7ff4bb7fe700) at pthread_create.c:333
+#42 0x00007ff4f9e6682d in clone () at ../sysdeps/unix/sysv/linux/x86_64/clone.S:109
+
+... so it's going via a signal and checking isinstance()
+
+We could consider using a Qt.BlockingQueuedConnection, though see also this potential PySide bug:
+    https://bugreports.qt.io/browse/PYSIDE-164
+
+Others thinking similarly -- "I tried to use PyObject as a data type, but a double free() would crash the program"
+    http://stackoverflow.com/questions/2823112/communication-between-threads-in-pyside
+
+Well, making every signal that carries data across a thread boundary into a Qt.BlockingQueuedConnection makes the GUI thread exceptionally slow.
+
+Others having garbage collection problems:
+    https://www.reddit.com/r/Python/comments/34qau7/why_is_pyqt_even_a_thing_anymore_when_pyside_is/

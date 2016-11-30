@@ -75,8 +75,12 @@ Qt (via PySide); SQLAlchemy.
     SQLITEMAN_URL="http://sqliteman.yarpen.cz/",
     BACKEND_URL="http://docs.sqlalchemy.org/en/latest/core/engines.html",
 )
+
 BALANCE_ASF_MINIMUM = 0  # p37 of balance manual
 BALANCE_ASF_MAXIMUM = 8  # p37 of balance manual
+
+DEFAULT_BALANCE_READ_FREQUENCY_HZ = 6
+
 DB_URL_ENV_VAR = "STARFEEDER_DATABASE_URL"
 DATABASE_ENV_VAR_NOT_SPECIFIED = """
 ===============================================================================

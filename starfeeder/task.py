@@ -19,12 +19,13 @@
 
 import logging
 
+import arrow
 # from whisker.debug_qt import debug_object
 from whisker.sqlalchemy import session_thread_scope
 from whisker.qt import exit_on_exception
 from whisker.qtclient import WhiskerTask
 
-from PySide.QtCore import QObject
+from PyQt5.QtCore import QObject, pyqtSlot
 from starfeeder.models import (
     MassEvent,  # for type hints
     MassEventRecord,
@@ -38,21 +39,23 @@ from starfeeder.version import VERSION
 log = logging.getLogger(__name__)
 
 
-class WeightWhiskerTask(WhiskerTask):
+class WeightWhiskerTask(WhiskerTask):  # Whisker thread B
     """Doesn't define an end, deliberately."""
 
     def __init__(self, wcm_prefix: str = "", parent: QObject = None,
-                 name: str = "whisker_task") -> None:
-        super().__init__(parent=parent, name=name)
+                 name: str = "whisker_task", **kwargs) -> None:
+        super().__init__(parent=parent, name=name, **kwargs)
         self.wcm_prefix = wcm_prefix
         self.dbsettings = get_database_settings()
         self.rfid_effective_time_s = None
 
+    @pyqtSlot()
     def thread_started(self) -> None:
         with session_thread_scope(self.dbsettings) as session:
             config = MasterConfig.get_singleton(session)
             self.rfid_effective_time_s = config.rfid_effective_time_s
 
+    @pyqtSlot()
     @exit_on_exception
     def on_connect(self) -> None:
         # self.debug("DERIVED on_connect")
@@ -60,6 +63,7 @@ class WeightWhiskerTask(WhiskerTask):
         # self.whisker.command("TimerSetEvent 2000 5 bop")
         self.whisker.report_name("Starfeeder {}".format(VERSION))
 
+    @pyqtSlot(str, arrow.Arrow, int)
     @exit_on_exception
     def on_event(self, event, timestamp, whisker_timestamp_ms):
         pass
@@ -71,6 +75,7 @@ class WeightWhiskerTask(WhiskerTask):
             msg = "{}{}".format(self.wcm_prefix, msg)
         self.whisker.broadcast(msg)
 
+    @pyqtSlot(RfidEvent)
     @exit_on_exception
     def on_rfid(self, rfid_event: RfidEvent) -> None:
         """
@@ -100,6 +105,7 @@ class WeightWhiskerTask(WhiskerTask):
                 )
             )
 
+    @pyqtSlot(MassEvent)
     @exit_on_exception
     def on_mass(self, mass_event: MassEvent) -> None:
         """

@@ -22,7 +22,7 @@ from typing import Optional
 
 import arrow
 import bitstring
-from PySide.QtCore import QObject, QTimer, Signal
+from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
 from whisker.qt import exit_on_exception
 
 from starfeeder.serial_controller import (
@@ -139,7 +139,7 @@ class RfidController(SerialController):
       and the '\n' wil stop it.)
     - Commands/responses from [3].
     """
-    rfid_received = Signal(RfidEvent)
+    rfid_received = pyqtSignal(RfidEvent)
 
     def __init__(self, reader_config: RfidReaderConfig,
                  balance_config: BalanceConfig, **kwargs) -> None:
@@ -151,10 +151,12 @@ class RfidController(SerialController):
         # noinspection PyUnresolvedReferences
         self.reset_timer.timeout.connect(self.reset_2)
 
+    @pyqtSlot()
     @exit_on_exception
     def on_start(self) -> None:
         self.reset()
 
+    @pyqtSlot()
     @exit_on_exception
     def on_stop(self) -> None:
         self.send(CMD_NO_OP_CANCEL)  # something to cancel any ongoing read
@@ -162,6 +164,7 @@ class RfidController(SerialController):
         # Inelegant! Risk the writer thread will be terminated before it
         # sends this command. Still, ho-hum.
 
+    @pyqtSlot()
     @exit_on_exception
     def reset(self) -> None:
         self.info("Resetting RFID: phase 1")
@@ -179,6 +182,7 @@ class RfidController(SerialController):
         # Anyway, let's not over-complicate it for now; resetting isn't a
         # common thing, and the user will have triggered it directly.
 
+    @pyqtSlot()
     def reset_2(self) -> None:
         self.info("Resetting RFID: phase 2")
         self.swallow_next_stopped_read = False
@@ -190,6 +194,7 @@ class RfidController(SerialController):
         self.info("Asking RFID to start reading")
         self.send(CMD_READING_CONTINUES)
 
+    @pyqtSlot(bytes, arrow.Arrow)
     @exit_on_exception
     def on_receive(self, data: bytes, timestamp: arrow.Arrow):
         if not isinstance(data, bytes):
@@ -235,11 +240,11 @@ class RfidController(SerialController):
             self.rfid_received.emit(rfid_event)
 
 
-class RfidOwner(SerialOwner):
+class RfidOwner(SerialOwner):  # GUI thread
     # Outwards, to world:
-    rfid_received = Signal(RfidEvent)
+    rfid_received = pyqtSignal(RfidEvent)
     # Inwards, to posessions:
-    reset_requested = Signal()
+    reset_requested = pyqtSignal()
 
     def __init__(self, rfid_config: RfidReaderConfig, callback_id: int,
                  parent: QObject = None) -> None:
@@ -260,7 +265,7 @@ class RfidOwner(SerialOwner):
         self.reader_id = rfid_config.id  # used by main GUI
         self.name = rfid_config.name  # used by main GUI
         self.reset_requested.connect(self.controller.reset)
-        self.controller.rfid_received.connect(self.rfid_received)
+        self.controller.rfid_received.connect(self.rfid_received)  # different thread  # noqa
 
     def reset(self) -> None:
         self.reset_requested.emit()

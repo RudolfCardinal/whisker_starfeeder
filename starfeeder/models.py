@@ -47,6 +47,8 @@ from whisker.lang import (
     trunc_if_integer,
 )
 
+from starfeeder.constants import DEFAULT_BALANCE_READ_FREQUENCY_HZ
+
 log = logging.getLogger(__name__)
 
 
@@ -93,7 +95,9 @@ class SerialPortConfigMixin(object):
                  stopbits: float = serial.STOPBITS_ONE,
                  xonxoff: bool = False,
                  rtscts: bool = True,
-                 dsrdtr: bool = False) -> None:
+                 dsrdtr: bool = False,
+                 **kwargs) -> None:
+        super().__init__(**kwargs)
         self.port = port
         self.baudrate = baudrate
         self.bytesize = bytesize
@@ -164,7 +168,7 @@ class RfidReaderConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
         kwargs.setdefault('xonxoff', False)
         kwargs.setdefault('rtscts', False)  # works under Linux, not Windows
         kwargs.setdefault('dsrdtr', False)
-        SerialPortConfigMixin.__init__(self, **kwargs)
+        super().__init__(**kwargs)
 
     def __repr__(self) -> str:
         return ordered_repr(
@@ -239,7 +243,8 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
         self.name = kwargs.pop('name', '')
         self.master_config_id = kwargs.pop('master_config_id')
         self.enabled = kwargs.pop('enabled', True)
-        self.measurement_rate_hz = kwargs.pop('measurement_rate_hz', 6)
+        self.measurement_rate_hz = kwargs.pop(
+            'measurement_rate_hz', DEFAULT_BALANCE_READ_FREQUENCY_HZ)
         self.stability_n = kwargs.pop('stability_n', 5)
         self.tolerance_kg = kwargs.pop('tolerance_kg', 0.005)
         self.min_mass_kg = kwargs.pop('min_mass_kg', 0.050)
@@ -255,7 +260,7 @@ class BalanceConfig(SqlAlchemyAttrDictMixin, SerialPortConfigMixin, Base):
         kwargs.setdefault('xonxoff', True)  # p15
         kwargs.setdefault('rtscts', False)
         kwargs.setdefault('dsrdtr', False)
-        SerialPortConfigMixin.__init__(self, **kwargs)
+        super().__init__(**kwargs)
 
     def __repr__(self) -> str:
         return ordered_repr(

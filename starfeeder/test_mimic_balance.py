@@ -82,12 +82,14 @@ class BalanceMimic(CommandLineSerialProcessor):
     IDENTIFICATION = "HBM,PW4 MCR2 2kg   ,70820   ,P52"
     # ... from screenshot (number of spaces may be a bit wrong, though)
 
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, args: argparse.Namespace, **kwargs) -> None:
         self.read_timeout_sec = READ_TIMEOUT_SEC
 
-        super().__init__(args, inbound_eol=[COMMAND_SEPARATOR, CRLF, LF],
+        super().__init__(args,
+                         inbound_eol=[COMMAND_SEPARATOR, CRLF, LF],
                          outbound_eol=CRLF,
-                         read_timeout_sec=self.read_timeout_sec)
+                         read_timeout_sec=self.read_timeout_sec,
+                         **kwargs)
         # Device to computer (from our perspective here, outbound): CR+LF
         # Computer to device (here, inbound): no delimiter, single-char commands
 

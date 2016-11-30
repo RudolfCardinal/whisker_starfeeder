@@ -59,11 +59,13 @@ class RfidMimic(CommandLineSerialProcessor):
     ]
     VERSION = "MULTITAG-125 01"
 
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, args: argparse.Namespace, **kwargs) -> None:
         self.read_timeout_sec = READ_TIMEOUT_SEC
-        super().__init__(args, inbound_eol=None, inbound_bytewise=True,
+        super().__init__(args,
+                         inbound_eol=None, inbound_bytewise=True,
                          outbound_eol=CRLF,
-                         read_timeout_sec=self.read_timeout_sec)
+                         read_timeout_sec=self.read_timeout_sec,
+                         **kwargs)
         # Device to computer (from our perspective here, outbound): CR+LF
         # Computer to device (here, inbound): no delimiter, single-char commands
 
@@ -89,7 +91,7 @@ class RfidMimic(CommandLineSerialProcessor):
                 self.current_rfid = self.RFID_ZTAG_EXAMPLES[rfid_index]
                 log.info("Setting RFID to {}".format(self.current_rfid))
             else:
-                log.info("Key {} invalid; use 0-{}".format(
+                log.warning("Key {} invalid; use 0-{}".format(
                     repr(c), len(self.RFID_ZTAG_EXAMPLES) - 1))
 
         if self.reading:

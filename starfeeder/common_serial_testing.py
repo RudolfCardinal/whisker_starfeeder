@@ -23,7 +23,7 @@ def add_serial_port_args(parser: ArgumentParser) -> None:
     group.add_argument(
         '--port', type=str, required=True,
         help="Serial port (e.g. Linux: /dev/ttyS0, Windows: COM1). For Linux "
-             "testing, you can use 'socat [-d [-d [-d [-d]]]] "
+             "testing, you can use 'socat -d -d [-d [-d]] "
              "pty,raw,echo=0,b9600 pty,raw,echo=0,b9600' to create a pair of "
              "linked pseudo-ports, and use the resulting /dev/pts/* devices,"
              "one for this program, and the other for the program you wish "
@@ -140,7 +140,9 @@ class CommandLineSerialProcessor(object):
                  inbound_bytewise: bool = False,
                  outbound_eol: bytes = LF,
                  encoding: str = 'ascii',
-                 read_timeout_sec: float = READ_TIMEOUT_SEC) -> None:
+                 read_timeout_sec: float = READ_TIMEOUT_SEC,
+                 **kwargs) -> None:
+        super().__init__(**kwargs)
         self.serial_port = serial.Serial(
             port=args.port,
             baudrate=args.baudrate,

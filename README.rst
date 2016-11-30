@@ -193,3 +193,5 @@ v0.2.6 (2016-11-24)
         is ever sent); could this be a PySide signals bug?
     -   Workaround is to verify type on receipt (and complain loudly if wrong
         but ignore/continue).
+-   BalanceController could send 'ICRNone', which is wrong; the frequency 10 Hz
+    was offered in the dialogue, but should have been 12. Validity check added.

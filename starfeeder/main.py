@@ -32,10 +32,11 @@ import logging
 import sys
 import traceback
 
-import PySide
-from PySide.QtGui import QApplication
+from PyQt5.Qt import PYQT_VERSION_STR
+from PyQt5.QtCore import QT_VERSION_STR
+from PyQt5.QtWidgets import QApplication
 from sqlalchemy import create_engine
-from whisker.debug_qt import enable_signal_debugging_simply
+# from whisker.debug_qt import enable_signal_debugging_simply
 from whisker.logging import (
     configure_logger_for_colour,
     copy_root_log_to_file,
@@ -178,15 +179,15 @@ def main() -> int:
                  "by Rudolf Cardinal (rudolf@pobox.com)".format(VERSION))
         log.debug("args: {}".format(args))
         log.debug("qt_args: {}".format(qt_args))
-        log.debug("PySide version: {}".format(PySide.__version__))
-        log.debug("QtCore version: {}".format(PySide.QtCore.qVersion()))
+        log.debug("PyQt5 version: {}".format(PYQT_VERSION_STR))
+        log.debug("Qt version: {}".format(QT_VERSION_STR))
         log.debug("Whisker client version: {}".format(whisker.version.VERSION))
         if in_bundle:
             log.debug("Running inside a PyInstaller bundle")
         if args.gui:
             log.debug("Running in GUI-only mode")
-        if args.debug_qt_signals:
-            enable_signal_debugging_simply()
+        # if args.debug_qt_signals:
+        #     enable_signal_debugging_simply()
 
         # ---------------------------------------------------------------------
         # Database

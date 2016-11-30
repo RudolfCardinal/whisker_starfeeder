@@ -24,13 +24,13 @@ import traceback
 from typing import Any, Dict, Type, TypeVar, Union
 
 import arrow
-from PySide.QtCore import (
+from PyQt5.QtCore import (
     QObject,
     Qt,
     QThread,
     QTimer,
-    Signal,
-    # Slot,
+    pyqtSignal,
+    pyqtSlot,
 )
 import serial
 from serial import Serial
@@ -55,19 +55,18 @@ WRITE_TIMEOUT_SEC = 5.0  # None for blocking writes
 INTER_BYTE_TIMEOUT_SEC = None
 
 
-class SerialReader(QObject, StatusMixin):
+class SerialReader(QObject, StatusMixin):  # separate reader thread
     """
     Object to monitor input from a serial port.
     Assigned to a thread (see below).
     """
-    started = Signal()
-    finished = Signal()
-    line_received = Signal(bytes, arrow.Arrow)
+    started = pyqtSignal()
+    finished = pyqtSignal()
+    line_received = pyqtSignal(bytes, arrow.Arrow)
 
     def __init__(self, name: str = '?', parent: QObject = None,
-                 eol: bytes = LF) -> None:
-        super().__init__(parent)
-        StatusMixin.__init__(self, name, log)
+                 eol: bytes = LF, **kwargs) -> None:
+        super().__init__(parent=parent, name=name, logger=log, **kwargs)
         self.serial_port = None  # set later
         self.eol = eol
 
@@ -75,6 +74,7 @@ class SerialReader(QObject, StatusMixin):
         self.finish_requested = False
         self.residual = b''
 
+    @pyqtSlot(Serial)
     @exit_on_exception
     def start(self, serial_port: Serial) -> None:
         self.serial_port = serial_port
@@ -119,6 +119,7 @@ class SerialReader(QObject, StatusMixin):
             self.debug("line: {}".format(repr(line)))
             self.line_received.emit(line, timestamp)
 
+    @pyqtSlot()
     @exit_on_exception
     def stop(self) -> None:
         """
@@ -166,22 +167,20 @@ class SerialReader(QObject, StatusMixin):
         self.finished.emit()
 
 
-class SerialWriter(QObject, StatusMixin):
+class SerialWriter(QObject, StatusMixin):  # separate writer thread
     """
     Object to send to a serial port.
     Assigned to a thread (see below).
     """
-    started = Signal()
-    finished = Signal()
+    started = pyqtSignal()
+    finished = pyqtSignal()
 
     def __init__(self, name: str = '?', parent: QObject = None,
-                 eol: bytes = LF, encoding: str = 'utf8') -> None:
+                 eol: bytes = LF, **kwargs) -> None:
         # ... UTF8 is ASCII for normal characters.
-        super().__init__(parent)
-        StatusMixin.__init__(self, name, log)
+        super().__init__(parent=parent, name=name, logger=log, **kwargs)
         self.serial_port = None  # set later
         self.eol = eol
-        self.encoding = encoding
         self.callback_timer = QTimer(self)
         # If you use QTimer() rather than QTimer(self), you get
         # "Timers cannot be started from another thread"
@@ -194,24 +193,25 @@ class SerialWriter(QObject, StatusMixin):
         self.busy = False
         # = "don't send new things immediately; we're in a delay"
 
+    @pyqtSlot(Serial)
     @exit_on_exception
     def start(self, serial_port: Serial) -> None:
         self.debug("starting")
         self.serial_port = serial_port
         self.started.emit()
 
+    @pyqtSlot(bytes, int)
     @exit_on_exception
-    def send(self, data: Union[bytes, str], delay_ms: int) -> None:
+    def send(self, data: bytes, delay_ms: int) -> None:
         """
         Sending interface offered to others.
         We maintain an orderly output queue and allow delays.
         """
-        if isinstance(data, str):
-            data = data.encode(self.encoding)
         self.queue.append((data, delay_ms))
         if not self.busy:
             self.process_queue()
 
+    @pyqtSlot()
     @exit_on_exception
     def process_queue(self) -> None:
         """Deals with what's in the queue."""
@@ -257,28 +257,31 @@ class SerialWriter(QObject, StatusMixin):
             self.error(traceback.format_exc())
 
 
-class SerialController(QObject, StatusMixin):
+class SerialController(QObject, StatusMixin):  # separate controller thread
     """
     Does the thinking. Has its own thread.
     """
-    data_send_requested = Signal(bytes, int)
-    finished = Signal()
+    data_send_requested = pyqtSignal(bytes, int)
+    finished = pyqtSignal()
 
-    def __init__(self, name: str, parent: QObject = None) -> None:
-        super().__init__(parent)
-        StatusMixin.__init__(self, name, log)
+    def __init__(self, name: str, output_encoding: str = 'utf8',
+                 parent: QObject = None, **kwargs) -> None:
+        super().__init__(parent=parent, name=name, logger=log, **kwargs)
+        self.output_encoding = output_encoding
 
     @exit_on_exception
     def on_receive(self, data: bytes, timestamp: arrow.Arrow) -> None:
         """Should be overridden."""
         pass
 
+    @pyqtSlot()
     def on_start(self) -> None:
         """Should be overridden."""
         pass
 
     def send(self, data: str, delay_ms: int = 0) -> None:
-        self.data_send_requested.emit(data, delay_ms)
+        data_bytes = data.encode(self.output_encoding)
+        self.data_send_requested.emit(data_bytes, delay_ms)
 
     def stop(self) -> None:
         """
@@ -297,22 +300,22 @@ SW = TypeVar('SW', bound='SerialWriter')
 SC = TypeVar('SC', bound='SerialController')
 
 
-class SerialOwner(QObject, StatusMixin):
+class SerialOwner(QObject, StatusMixin):  # GUI thread
     """
     Encapsulates a serial port + reader (with thread) + writer (with thread)
     and the associated signals/slots.
     """
     # Outwards, to world:
-    started = Signal()
-    finished = Signal()
-    state_change = Signal(int, str)
+    started = pyqtSignal()
+    finished = pyqtSignal()
+    state_change = pyqtSignal(int, str)
     # Inwards, to possessions:
-    reader_start_requested = Signal(serial.Serial)
-    writer_start_requested = Signal(serial.Serial)
-    reader_stop_requested = Signal()
-    writer_stop_requested = Signal()
-    controller_stop_requested = Signal()
-    status_requested = Signal()
+    reader_start_requested = pyqtSignal(serial.Serial)
+    writer_start_requested = pyqtSignal(serial.Serial)
+    reader_stop_requested = pyqtSignal()
+    writer_stop_requested = pyqtSignal()
+    controller_stop_requested = pyqtSignal()
+    status_requested = pyqtSignal()
 
     # noinspection PyUnresolvedReferences
     def __init__(self,
@@ -331,7 +334,8 @@ class SerialOwner(QObject, StatusMixin):
                  controller_kwargs: Dict[str, Any] = None,
                  read_timeout_sec: float = READ_TIMEOUT_SEC,
                  write_timeout_sec: float = WRITE_TIMEOUT_SEC,
-                 inter_byte_timeout_sec: float = INTER_BYTE_TIMEOUT_SEC):
+                 inter_byte_timeout_sec: float = INTER_BYTE_TIMEOUT_SEC,
+                 **kwargs):
         """
         serial_args: as per PySerial:
             port
@@ -343,8 +347,7 @@ class SerialOwner(QObject, StatusMixin):
             rtscts
             dsrdtr
         """
-        super().__init__(parent)
-        StatusMixin.__init__(self, name, log)
+        super().__init__(parent=parent, name=name, logger=log, **kwargs)
         self.callback_id = callback_id
         reader_kwargs = reader_kwargs or {}  # type: Dict[str, Any]
         writer_kwargs = writer_kwargs or {}  # type: Dict[str, Any]
@@ -382,9 +385,9 @@ class SerialOwner(QObject, StatusMixin):
         self.reader = reader_class(**reader_kwargs)
         writer_kwargs.setdefault('name', name)
         writer_kwargs.setdefault('eol', tx_eol)
-        writer_kwargs.setdefault('encoding', encoding)
         self.writer = writer_class(**writer_kwargs)
         controller_kwargs.setdefault('name', name)
+        controller_kwargs.setdefault('encoding', encoding)
         self.controller = controller_class(**controller_kwargs)
 
         # Assign objects to thread
@@ -469,15 +472,18 @@ class SerialOwner(QObject, StatusMixin):
         self.debug("starting writer thread")
         self.writerthread.start()
 
+    @pyqtSlot()
     @exit_on_exception
     def writerthread_started(self) -> None:
         self.writer_start_requested.emit(self.serial_port)
 
+    @pyqtSlot()
     @exit_on_exception
     def writer_started(self) -> None:
         self.debug("start: starting reader thread")
         self.readerthread.start()
 
+    @pyqtSlot()
     @exit_on_exception
     def readerthread_started(self) -> None:
         self.reader_start_requested.emit(self.serial_port)
@@ -485,6 +491,7 @@ class SerialOwner(QObject, StatusMixin):
         self.debug("start: starting controller thread")
         self.controllerthread.start()
 
+    @pyqtSlot()
     @exit_on_exception
     def controllerthread_started(self) -> None:
         self.set_state(ThreadOwnerState.running)
@@ -505,21 +512,25 @@ class SerialOwner(QObject, StatusMixin):
             return
         self.controller_stop_requested.emit()
 
+    @pyqtSlot()
     @exit_on_exception
     def reader_finished(self) -> None:
         self.debug("SerialController.reader_finished")
         self.readerthread.quit()
 
+    @pyqtSlot()
     @exit_on_exception
     def readerthread_finished(self) -> None:
         self.debug("stop: reader thread stopped")
         self.check_everything_finished()
 
+    @pyqtSlot()
     @exit_on_exception
     def writerthread_finished(self) -> None:
         self.debug("stop: writer thread stopped")
         self.check_everything_finished()
 
+    @pyqtSlot()
     @exit_on_exception
     def controllerthread_finished(self) -> None:
         self.debug("stop: controller thread stopped")
@@ -542,6 +553,7 @@ class SerialOwner(QObject, StatusMixin):
     # Info
     # -------------------------------------------------------------------------
 
+    @pyqtSlot()
     def report_status(self) -> None:
         self.status("state: {}".format(self.state.name))
         # I think it's OK to request serial port information from the GUI

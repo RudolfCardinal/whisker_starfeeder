@@ -76,9 +76,10 @@ setup(
         'Operating System :: OS Independent',
 
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.2',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
+        # 'Programming Language :: Python :: 3.2',
+        # 'Programming Language :: Python :: 3.3',
+        # 'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',  # PyQt5 requires 3.5
         'Programming Language :: Python :: 3 :: Only',
 
         'Topic :: System :: Hardware',
@@ -93,28 +94,29 @@ setup(
         # ---------------------------------------------------------------------
         # Standard PyPI packages
         # ---------------------------------------------------------------------
-        'alembic==0.8.3',  # migration tool for sqlalchemy
+        'alembic>=0.8.3',  # migration tool for sqlalchemy
         'arrow',  # better datetime
         'attrdict',  # dictionaries with attribute-style access
-        'bitstring==3.1.4',  # manipulation of binary numbers
-        'PySide==1.2.4',  # Python interface to Qt
-        'pyserial==3.2.1',  # serial port library
-        'six==1.10.0',  # Python 2/3 compatibility library
-        'SQLAlchemy==1.0.12',  # database ORM
-        'typing==3.5.2.2',  # part of stdlib in Python 3.5, but not 3.4
-        'whisker>=0.3.4',  # Whisker client library
+        'bitstring>=3.1.4',  # manipulation of binary numbers
+        # 'PySide==1.2.4',  # Python interface to Qt
+        'PyQt5>=5.7',  # Python interface to Qt
+        'pyserial>=3.2.1',  # serial port library
+        'six>=1.10.0',  # Python 2/3 compatibility library
+        'SQLAlchemy>=1.0.12',  # database ORM
+        # 'typing==3.5.2.2',  # part of stdlib in Python 3.5, but not 3.4
+        'whisker>=0.3.5',  # Whisker client library
 
         # ---------------------------------------------------------------------
         # Database connections (SQLite is built in)
         # ---------------------------------------------------------------------
         # MySQL:
-        'PyMySQL==0.7.2',
+        'PyMySQL>=0.7.2',
 
         # SQL Server / ODBC route:
-        'pyodbc==3.0.10',
+        'pyodbc>=3.0.10',
 
         # PostgreSQL:
-        'psycopg2==2.6.1',
+        'psycopg2>=2.6.1',
 
         # ---------------------------------------------------------------------
         # Specials: development versions
@@ -163,8 +165,8 @@ setup(
         'console_scripts': [
             # Format is 'script=module:function".
             'starfeeder=starfeeder.main:main',
-            'starfeeder_test_mimic_rfid_reader=starfeeder.test_mimic_rfid_reader:main',
-            'starfeeder_test_mimic_balance=starfeeder.test_mimic_balance:main',
+            'starfeeder_mimic_rfid_reader=starfeeder.test_mimic_rfid_reader:main',  # noqa
+            'starfeeder_mimic_balance=starfeeder.test_mimic_balance:main',
         ],
     },
 )
