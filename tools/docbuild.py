@@ -32,7 +32,10 @@ if RST2HTML is None:
     raise AssertionError('Need rst2html.py (use: pip install docutils)')
 WKHTMLTOPDF = shutil.which('wkhtmltopdf')
 if WKHTMLTOPDF is None:
-    raise AssertionError('Need wkhtmltopdf')
+    raise AssertionError(
+        'Need wkhtmltopdf on the PATH; if not installed, download from e.g. '
+        'http://wkhtmltopdf.org/downloads.html and then make sure wkhtmltopdf '
+        'is visible on your PATH before re-running this tool.')
 
 # wkhtmltopdf is tricky:
 # 1. I've not managed to get wkhtmltopdf to cope with images unless it has a

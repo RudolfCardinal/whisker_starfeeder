@@ -21,7 +21,11 @@ from collections import deque, OrderedDict
 import logging
 import platform
 import traceback
-from typing import Any, Dict, Type, TypeVar, Union
+from typing import Any, Dict, Type, TypeVar  # if this fails under Python 3.5.1, upgrade to 3.5.2  # noqa
+# ... under Python 3.4/earlier, "typing" is an external module installed with
+# pip, but under Python 3.5 it's build in to the standard library. However,
+# early versions of Python 3.5's built-in "typing" don't include Type; see
+# https://github.com/python/mypy/issues/1838
 
 import arrow
 from PyQt5.QtCore import (

@@ -1,5 +1,32 @@
 #!/usr/bin/env python
 
+"""
+OVERALL METHOD
+
+- Use a relatively modern version of Windows (required for Python 3.5).
+- Install git
+- git clone [URL] starfeeder
+
+- Install Python 3.5
+    ... CHOOSE: 32-bit or 64-bit
+- For the appropriate Python:
+    - Create a virtualenv
+    - Activate the virtualenv
+
+    - pip install docutils wkhtmltopdf
+
+    # pip install pyinstaller
+        # BUT because of pyinstaller bug in 3.2, use dev build:
+        # https://github.com/pyinstaller/pyinstaller/issues/1988
+    - pip install git+git://github.com/pyinstaller/pyinstaller.git
+
+    - change to the source directory
+    - pip install -e starfeeder
+    - python tools/make_pyinstaller_distributable.py
+
+
+"""
+
 import os
 import platform
 import shutil
