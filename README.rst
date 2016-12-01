@@ -182,7 +182,8 @@ v0.2.6 (2016-11-24)
 
 -   Upgraded from pyserial 3.0.1 to 3.2.1
     ... also allows the use of Linux pseudoterminals for testing;
-        http://stackoverflow.com/questions/34831131
+    http://stackoverflow.com/questions/34831131
+
 -   Passwords obscured in debug-level database URLs.
 -   Top-level exception tracebacks go to log (like all others), not to print()
     using traceback.print_exc().
@@ -191,27 +192,29 @@ v0.2.6 (2016-11-24)
 -   Bug workaround:
     PROBLEM
     -   sometimes, ``WeightWhiskerTask.on_mass()`` received something that was
-        not a ``MassEvent``. Not sure why (it doesn't look like anything else
-        is ever sent); could this be a PySide signals bug?
+    not a ``MassEvent``. Not sure why (it doesn't look like anything else
+    is ever sent); could this be a PySide signals bug?
+
     ATTEMPT 1
     -   Workaround is to verify type on receipt (and complain loudly if wrong
-        but ignore/continue).
-    ... no; irremediable bug in PySide (see development notes); it fails to
-        keep references to signal parameters, so sometimes they go AWOL.
+    but ignore/continue).
+    -   ... no; irremediable bug in PySide (see development notes); it fails to
+    keep references to signal parameters, so sometimes they go AWOL.
+
     ATTEMPT 2
     -   Switched from PySide to PyQt5, and thus GPLv3 licensing.
     -   Generally, this seems much better.
     -   Even then, apparent corruption in "bytes" object passed from
-        SerialController.process_data()
-        -> SerialController.line_received
-        -> [change thread]
-        -> RfidController.on_receive
-        Sometimes the received bytes object is b'', not what was sent.
-        PyQt does some sort of autoconversion to C++ objects; see
-            http://pyqt.sourceforge.net/Docs/PyQt5/signals_slots.html
-        and the problem appears to go away by using an encapsulating Python
-        object... Not ideal!
-        Does it also affect str? No, str seems OK.
-        BUG REPRODUCED RELIABLY in pyqt5_signal_with_bytes.py.
-        Reported to PyQt mailing list on 2016-12-01.
-        SO FOR NOW: AVOID bytes OBJECTS IN PyQt5 SIGNALS.
+    SerialController.process_data()
+    -> SerialController.line_received
+    -> [change thread]
+    -> RfidController.on_receive
+    Sometimes the received bytes object is b'', not what was sent.
+    PyQt does some sort of autoconversion to C++ objects; see
+    http://pyqt.sourceforge.net/Docs/PyQt5/signals_slots.html ;
+    and the problem appears to go away by using an encapsulating Python
+    object... Not ideal!
+    Does it also affect str? No, str seems OK.
+    BUG REPRODUCED RELIABLY in pyqt5_signal_with_bytes.py.
+    Reported to PyQt mailing list on 2016-12-01.
+    SO FOR NOW: AVOID bytes OBJECTS IN PyQt5 SIGNALS.

@@ -16,11 +16,29 @@ Run with:
 
 """
 
+import distutils
+import platform
+import os
+
+# BROKEN in virtualenv # SITE_PACKAGES = site.getsitepackages()[0]
+SITE_PACKAGES = distutils.sysconfig.get_python_lib()
+
+WINDOWS = platform.system() == 'Windows'
+binaries = []
+if WINDOWS:
+    QT_DLL_STEMS = ['Qt5Svg', 'Qt5Gui', 'Qt5Core', 'Qt5PrintSupport',
+                    'Qt5Network']
+    QT_DLL_DIR = os.path.join(SITE_PACKAGES, 'PyQt5', 'Qt', 'bin')
+    for _stem in QT_DLL_STEMS:
+        _name = _stem + '.dll'
+        _fullpath = os.path.join(QT_DLL_DIR, _name)
+        binaries.append((_name, _fullpath, 'BINARY'))
+
 block_cipher = None
 
 a = Analysis(
     ['starfeeder/main.py'],
-    binaries=None,
+    binaries=binaries,
     datas=[
         # tuple is: source path/glob, destination directory
         # (regardless of what the docs suggest) and '' seems to

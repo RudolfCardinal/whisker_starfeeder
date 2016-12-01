@@ -9,11 +9,12 @@ OVERALL METHOD
 
 - Install Python 3.5
     ... CHOOSE: 32-bit or 64-bit
+- Install wkhtmltopdf and make sure it's on the PATH
 - For the appropriate Python:
     - Create a virtualenv
     - Activate the virtualenv
 
-    - pip install docutils wkhtmltopdf
+    - pip install docutils
 
     # pip install pyinstaller
         # BUT because of pyinstaller bug in 3.2, use dev build:
@@ -22,7 +23,21 @@ OVERALL METHOD
 
     - change to the source directory
     - pip install -e starfeeder
+    # check it runs!
+    - starfeeder
+
     - python tools/make_pyinstaller_distributable.py
+
+
+NOTES 2016-12-01
+
+-   "Failed to execute script pyi_rth_qt5plugins", preceded by lots of
+    "WARNING: lib not found: Qt5Core.dll dependency of ..." and similar
+
+    https://github.com/pyinstaller/pyinstaller/issues/2280
+
+
+
 
 
 """
