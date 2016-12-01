@@ -47,6 +47,7 @@ import platform
 import shutil
 import subprocess
 import sys
+# import PyInstaller.building.utils
 
 if sys.version_info[0] < 3:
     raise AssertionError("Need Python 3")

@@ -29,10 +29,12 @@ if WINDOWS:
     QT_DLL_STEMS = ['Qt5Svg', 'Qt5Gui', 'Qt5Core', 'Qt5PrintSupport',
                     'Qt5Network']
     QT_DLL_DIR = os.path.join(SITE_PACKAGES, 'PyQt5', 'Qt', 'bin')
+    _target_dir = '.'  # ?
     for _stem in QT_DLL_STEMS:
         _name = _stem + '.dll'
         _fullpath = os.path.join(QT_DLL_DIR, _name)
-        binaries.append((_name, _fullpath, 'BINARY'))
+        binaries.append((_fullpath, _target_dir))
+        # see PyInstaller.building.utils.format_binaries_and_datas
 
 block_cipher = None
 
