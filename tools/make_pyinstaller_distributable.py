@@ -42,6 +42,7 @@ NOTES 2016-12-01
 
 """
 
+import argparse
 import os
 import platform
 import shutil
@@ -96,6 +97,9 @@ def title(msg):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-v', action='store_true', help="Verbose")
+
     title("Deleting old distribution...")
     shutil.rmtree(BUILD_DIR, ignore_errors=True)
     shutil.rmtree(DIST_DIR, ignore_errors=True)
@@ -106,8 +110,9 @@ if __name__ == '__main__':
     subprocess.check_call([PYTHON, DOCMAKER])
 
     title("Building new distribution...")
+    loglevel = "DEBUG" if args.verbose else "INFO"
     subprocess.check_call(
-        ['pyinstaller', '--clean', '--log-level=INFO'] +
+        ['pyinstaller', '--clean', '--log-level=' + loglevel] +
         PYINSTALLER_EXTRA_OPTIONS +
         [SPECFILE]
     )

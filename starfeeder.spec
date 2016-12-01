@@ -26,8 +26,14 @@ SITE_PACKAGES = distutils.sysconfig.get_python_lib()
 WINDOWS = platform.system() == 'Windows'
 binaries = []
 if WINDOWS:
-    QT_DLL_STEMS = ['Qt5Svg', 'Qt5Gui', 'Qt5Core', 'Qt5PrintSupport',
-                    'Qt5Network']
+    QT_DLL_STEMS = [
+        'Qt5Core',
+        'Qt5Gui',
+        'Qt5Network',
+        'Qt5PrintSupport',
+        'Qt5Svg',
+        'Qt5Widgets',
+    ]
     QT_DLL_DIR = os.path.join(SITE_PACKAGES, 'PyQt5', 'Qt', 'bin')
     _target_dir = '.'  # ?
     for _stem in QT_DLL_STEMS:
