@@ -99,6 +99,7 @@ def title(msg):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', action='store_true', help="Verbose")
+    args = parser.parse_args()
 
     title("Deleting old distribution...")
     shutil.rmtree(BUILD_DIR, ignore_errors=True)

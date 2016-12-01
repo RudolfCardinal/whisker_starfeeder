@@ -6,7 +6,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6c50a4b2-668d-4118-8b60-669466b917b9" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/starfeeder.spec" afterPath="$PROJECT_DIR$/starfeeder.spec" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/tools/make_pyinstaller_distributable.py" afterPath="$PROJECT_DIR$/tools/make_pyinstaller_distributable.py" />
     </list>
     <ignored path="whisker_starfeeder.iws" />
@@ -50,11 +49,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="make_pyinstaller_distributable.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="make_pyinstaller_distributable.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/tools/make_pyinstaller_distributable.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="394">
-              <caret line="88" column="0" lean-forward="true" selection-start-line="88" selection-start-column="0" selection-end-line="88" selection-end-column="0" />
+            <state relative-caret-position="563">
+              <caret line="101" column="0" lean-forward="false" selection-start-line="101" selection-start-column="0" selection-end-line="101" selection-end-column="0" />
               <folding />
             </state>
           </provider>
@@ -90,11 +89,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="starfeeder.spec" pinned="false" current-in-tab="true">
+      <file leaf-file-name="starfeeder.spec" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/starfeeder.spec">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="134">
-              <caret line="34" column="0" lean-forward="false" selection-start-line="34" selection-start-column="0" selection-end-line="34" selection-end-column="0" />
+            <state relative-caret-position="927">
+              <caret line="101" column="0" lean-forward="true" selection-start-line="101" selection-start-column="0" selection-end-line="101" selection-end-column="0" />
               <folding />
             </state>
           </provider>
@@ -213,8 +212,8 @@
         <option value="$PROJECT_DIR$/tools/docbuild.py" />
         <option value="$PROJECT_DIR$/starfeeder/serial_controller.py" />
         <option value="$PROJECT_DIR$/README.rst" />
-        <option value="$PROJECT_DIR$/tools/make_pyinstaller_distributable.py" />
         <option value="$PROJECT_DIR$/starfeeder.spec" />
+        <option value="$PROJECT_DIR$/tools/make_pyinstaller_distributable.py" />
       </list>
     </option>
   </component>
@@ -1076,18 +1075,18 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/tools/make_pyinstaller_distributable.py">
+    <entry file="file://$PROJECT_DIR$/starfeeder.spec">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="394">
-          <caret line="88" column="0" lean-forward="true" selection-start-line="88" selection-start-column="0" selection-end-line="88" selection-end-column="0" />
+        <state relative-caret-position="927">
+          <caret line="101" column="0" lean-forward="true" selection-start-line="101" selection-start-column="0" selection-end-line="101" selection-end-column="0" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/starfeeder.spec">
+    <entry file="file://$PROJECT_DIR$/tools/make_pyinstaller_distributable.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="134">
-          <caret line="34" column="0" lean-forward="false" selection-start-line="34" selection-start-column="0" selection-end-line="34" selection-end-column="0" />
+        <state relative-caret-position="563">
+          <caret line="101" column="0" lean-forward="false" selection-start-line="101" selection-start-column="0" selection-end-line="101" selection-end-column="0" />
           <folding />
         </state>
       </provider>
