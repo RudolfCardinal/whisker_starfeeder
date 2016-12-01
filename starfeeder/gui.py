@@ -1006,7 +1006,7 @@ class MasterConfigWindow(QDialog, TransactionalEditDialogMixin):
                 raise ValidationError(
                     "Balance {} has no paired RFID reader".format(
                         balance_config.name))
-            if not balance_config.reader.enabled:
+            if balance_config.enabled and not balance_config.reader.enabled:
                 raise ValidationError(
                     "Balance {} is using RFID reader {},<br>"
                     "but this is disabled".format(

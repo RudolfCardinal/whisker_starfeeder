@@ -55,7 +55,7 @@ setup(
     author_email='rudolf@pobox.com',
 
     # Choose your license
-    license='Apache License 2.0',
+    license='GNU General Public License v3 or later (GPLv3+)',
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
@@ -69,7 +69,7 @@ setup(
         'Intended Audience :: Science/Research',
 
         # Pick your license as you wish (should match "license" above)
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',  # noqa
 
         'Natural Language :: English',
 
@@ -129,7 +129,7 @@ setup(
         # 'PyInstaller==3.1.1',
         # 'colorama',
         # 'docutils==0.12',  # documentation generation tools
-        # 'git+https://github.com/pyinstaller/pyinstaller@93d25e563e49f88f5977afd9b6e26cb34bfb5efa',  # PyInstaller=3.1.dev0+93d25e5
+        # 'git+https://github.com/pyinstaller/pyinstaller@93d25e563e49f88f5977afd9b6e26cb34bfb5efa',  # PyInstaller=3.1.dev0+93d25e5  # noqa
     ],
     dependency_links=[
         # ---------------------------------------------------------------------
@@ -157,7 +157,7 @@ setup(
         # ---------------------------------------------------------------------
         # MySQL Connector/Python
         # ---------------------------------------------------------------------
-        # 'https://cdn.mysql.com/Downloads/Connector-Python/mysql-connector-python-2.1.3.tar.gz',  # MySQL Connector/Python
+        # 'https://cdn.mysql.com/Downloads/Connector-Python/mysql-connector-python-2.1.3.tar.gz',  # MySQL Connector/Python  # noqa
     ],
     # YOU MUST ALSO USE THE "--process-dependency-links" FLAG.
 

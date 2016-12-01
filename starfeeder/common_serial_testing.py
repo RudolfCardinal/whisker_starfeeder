@@ -209,7 +209,13 @@ class CommandLineSerialProcessor(object):
         """May be overridden."""
         log.debug("bytes_received: {}".format(repr(data)))
         if self.inbound_bytewise or not self.inbound_eol_splitter:
-            self.line_received(data.decode(self.encoding))
+            try:
+                decoded = data.decode(self.encoding)
+            except UnicodeDecodeError:
+                log.critical("Can't decode using {} encoding; data was "
+                             "{}".format(repr(data)))
+                return
+            self.line_received(decoded)
         else:
             data = self.residual + data
             fragments = self.inbound_eol_splitter.split(data)
@@ -218,7 +224,13 @@ class CommandLineSerialProcessor(object):
             # log.debug("lines={}, residual={}".format(
             #     repr(lines), repr(self.residual)))
             for line in lines:
-                self.line_received(line.decode(self.encoding))
+                try:
+                    decoded = line.decode(self.encoding)
+                except UnicodeDecodeError:
+                    log.critical("Can't decode using {} encoding; data was "
+                                 "{}".format(repr(data)))
+                    return
+                self.line_received(decoded)
 
     # noinspection PyMethodMayBeStatic
     def line_received(self, line: str) -> None:

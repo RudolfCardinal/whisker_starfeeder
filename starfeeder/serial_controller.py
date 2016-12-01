@@ -45,6 +45,7 @@ log = logging.getLogger(__name__)
 CR = b'\r'
 CRLF = b'\r\n'
 LF = b'\n'
+LF_STR = '\n'
 NO_BYTES = b''
 
 DEBUG_WRITE_TIMING = False
@@ -55,6 +56,12 @@ WRITE_TIMEOUT_SEC = 5.0  # None for blocking writes
 INTER_BYTE_TIMEOUT_SEC = None
 
 
+# class SerialReceiveMessage(object):
+#     def __init__(self, data: bytes, timestamp: arrow.Arrow) -> None:
+#         self.data = data
+#         self.timestamp = timestamp
+
+
 class SerialReader(QObject, StatusMixin):  # separate reader thread
     """
     Object to monitor input from a serial port.
@@ -62,13 +69,17 @@ class SerialReader(QObject, StatusMixin):  # separate reader thread
     """
     started = pyqtSignal()
     finished = pyqtSignal()
-    line_received = pyqtSignal(bytes, arrow.Arrow)
+    # line_received = pyqtSignal(bytes, arrow.Arrow)  # problems
+    # line_received = pyqtSignal(SerialReceiveMessage)  # fine?
+    line_received = pyqtSignal(str, arrow.Arrow)
 
     def __init__(self, name: str = '?', parent: QObject = None,
-                 eol: bytes = LF, **kwargs) -> None:
+                 eol: bytes = LF, input_encoding: str = 'ascii',
+                 **kwargs) -> None:
         super().__init__(parent=parent, name=name, logger=log, **kwargs)
         self.serial_port = None  # set later
         self.eol = eol
+        self.input_encoding = input_encoding
 
         self.len_eol = len(eol)
         self.finish_requested = False
@@ -117,7 +128,17 @@ class SerialReader(QObject, StatusMixin):  # separate reader thread
         self.residual = fragments[-1]
         for line in lines:
             self.debug("line: {}".format(repr(line)))
-            self.line_received.emit(line, timestamp)
+            # self.line_received.emit(line, timestamp)
+            # self.line_received.emit(b'Z5A2080A70C2C0001', timestamp)
+            # msg = SerialReceiveMessage(data=line, timestamp=timestamp)
+            # self.line_received.emit(msg)
+            try:
+                decoded = line.decode(self.input_encoding)
+            except UnicodeDecodeError:
+                self.critical("Received input that {} won't decode, ignoring: "
+                              "{}".format(self.input_encoding, repr(data)))
+                continue
+            self.line_received.emit(decoded, timestamp)
 
     @pyqtSlot()
     @exit_on_exception
@@ -175,12 +196,16 @@ class SerialWriter(QObject, StatusMixin):  # separate writer thread
     started = pyqtSignal()
     finished = pyqtSignal()
 
-    def __init__(self, name: str = '?', parent: QObject = None,
-                 eol: bytes = LF, **kwargs) -> None:
+    def __init__(self, name: str = '?',
+                 output_encoding: str = 'utf8', eol: bytes = LF,
+                 parent: QObject = None,
+                 **kwargs) -> None:
         # ... UTF8 is ASCII for normal characters.
         super().__init__(parent=parent, name=name, logger=log, **kwargs)
         self.serial_port = None  # set later
         self.eol = eol
+        self.output_encoding = output_encoding
+
         self.callback_timer = QTimer(self)
         # If you use QTimer() rather than QTimer(self), you get
         # "Timers cannot be started from another thread"
@@ -200,14 +225,20 @@ class SerialWriter(QObject, StatusMixin):  # separate writer thread
         self.serial_port = serial_port
         self.started.emit()
 
-    @pyqtSlot(bytes, int)
+    @pyqtSlot(str, int)
     @exit_on_exception
-    def send(self, data: bytes, delay_ms: int) -> None:
+    def send(self, data: str, delay_ms: int) -> None:
         """
         Sending interface offered to others.
         We maintain an orderly output queue and allow delays.
         """
-        self.queue.append((data, delay_ms))
+        try:
+            encoded_bytes = data.encode(self.output_encoding)
+        except UnicodeDecodeError:
+            self.critical("Trying to send str that {} won't encode, ignoring: "
+                          "{}".format(self.output_encoding, repr(data)))
+            return
+        self.queue.append((encoded_bytes, delay_ms))
         if not self.busy:
             self.process_queue()
 
@@ -261,16 +292,15 @@ class SerialController(QObject, StatusMixin):  # separate controller thread
     """
     Does the thinking. Has its own thread.
     """
-    data_send_requested = pyqtSignal(bytes, int)
+    data_send_requested = pyqtSignal(str, int)
     finished = pyqtSignal()
 
     def __init__(self, name: str, output_encoding: str = 'utf8',
                  parent: QObject = None, **kwargs) -> None:
         super().__init__(parent=parent, name=name, logger=log, **kwargs)
-        self.output_encoding = output_encoding
 
-    @exit_on_exception
-    def on_receive(self, data: bytes, timestamp: arrow.Arrow) -> None:
+    @pyqtSlot(str, arrow.Arrow)
+    def on_receive(self, data: str, timestamp: arrow.Arrow) -> None:
         """Should be overridden."""
         pass
 
@@ -279,9 +309,20 @@ class SerialController(QObject, StatusMixin):  # separate controller thread
         """Should be overridden."""
         pass
 
-    def send(self, data: str, delay_ms: int = 0) -> None:
-        data_bytes = data.encode(self.output_encoding)
-        self.data_send_requested.emit(data_bytes, delay_ms)
+    def send_str(self, data: str, delay_ms: int = 0) -> None:
+        self.data_send_requested.emit(data, delay_ms)
+
+    def send_bytes(self, data: bytes, delay_ms: int = 0) -> None:
+        # This is a bit silly, but we're trying to avoid sending bytes objects
+        # via PyQt5 signals; they seem to be vulnerable to corruption; see
+        # README.rst
+        try:
+            data_str = data.decode(self.output_encoding)
+        except UnicodeDecodeError:
+            self.critical("Trying to send bytes that {} won't decode, ignoring"
+                          ": {}".format(self.output_encoding, repr(data)))
+            return
+        self.data_send_requested.emit(data_str, delay_ms)
 
     def stop(self) -> None:
         """
@@ -325,7 +366,8 @@ class SerialOwner(QObject, StatusMixin):  # GUI thread
                  tx_eol: bytes = LF,
                  callback_id: int = None,
                  name: str = '?',
-                 encoding: str = 'utf8',
+                 input_encoding: str = 'ascii',  # serial device to us
+                 output_encoding: str = 'utf8',  # us to serial device
                  reader_class: Type[SR] = SerialReader,
                  reader_kwargs: Dict[str, Any] = None,
                  writer_class: Type[SW] = SerialWriter,
@@ -382,12 +424,13 @@ class SerialOwner(QObject, StatusMixin):  # GUI thread
         # Serial reader/writer/controller objects
         reader_kwargs.setdefault('name', name)
         reader_kwargs.setdefault('eol', rx_eol)
+        reader_kwargs.setdefault('input_encoding', input_encoding)
         self.reader = reader_class(**reader_kwargs)
         writer_kwargs.setdefault('name', name)
         writer_kwargs.setdefault('eol', tx_eol)
         self.writer = writer_class(**writer_kwargs)
         controller_kwargs.setdefault('name', name)
-        controller_kwargs.setdefault('encoding', encoding)
+        controller_kwargs.setdefault('output_encoding', output_encoding)
         self.controller = controller_class(**controller_kwargs)
 
         # Assign objects to thread

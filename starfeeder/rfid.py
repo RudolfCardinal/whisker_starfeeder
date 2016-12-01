@@ -28,7 +28,8 @@ from whisker.qt import exit_on_exception
 from starfeeder.serial_controller import (
     # CR,
     CRLF,
-    LF,
+    # LF,
+    LF_STR,
     NO_BYTES,
     SerialController,
     SerialOwner,
@@ -43,7 +44,7 @@ CMD_RESET_1 = "x"  # response: "MULTITAG-125 01" (+/- "S" as a separate line)
 CMD_RESET_2 = "z"  # response: "MULTITAG-125 01"
 CMD_REQUEST_VERSION = "v"  # response: "MULTITAG-125 01"
 CMD_READING_CONTINUES = "c"  # response: nothing -> RFIDs; "S" after next char
-CMD_NO_OP_CANCEL = LF
+CMD_NO_OP_CANCEL = LF_STR
 CMD_LOGIN = "l"  # but response: "?"
 CMD_READ_PAGE = "r"  # but response: "?"
 CMD_WRITE_PAGE = "w"  # but response: "?"
@@ -151,6 +152,9 @@ class RfidController(SerialController):
         # noinspection PyUnresolvedReferences
         self.reset_timer.timeout.connect(self.reset_2)
 
+    def send(self, data: str, delay_ms: int = 0) -> None:
+        self.send_str(data, delay_ms)
+
     @pyqtSlot()
     @exit_on_exception
     def on_start(self) -> None:
@@ -194,16 +198,14 @@ class RfidController(SerialController):
         self.info("Asking RFID to start reading")
         self.send(CMD_READING_CONTINUES)
 
-    @pyqtSlot(bytes, arrow.Arrow)
-    @exit_on_exception
-    def on_receive(self, data: bytes, timestamp: arrow.Arrow):
-        if not isinstance(data, bytes):
+    @pyqtSlot(str, arrow.Arrow)
+    def on_receive(self, data: str, timestamp: arrow.Arrow) -> None:
+        if not isinstance(data, str):
             self.critical("bad data: {}".format(repr(data)))
             return
         if not isinstance(timestamp, arrow.Arrow):
             self.critical("bad timestamp: {}".format(repr(timestamp)))
             return
-        data = data.decode("ascii")
         self.debug("Receiving at {}: {}".format(timestamp, repr(data)))
         if data == RESPONSE_COMMAND_INVALID:
             self.debug("RESPONSE_COMMAND_INVALID")

@@ -155,7 +155,7 @@ class BalanceController(SerialController):  # separate controller thread
         if reply_expected:
             self.command_queue.append(command)
         msg = command + params
-        super().send(msg, delay_ms)
+        super().send_str(msg, delay_ms)
 
     def check_calibrated(self) -> None:
         if self.value_to_mass(1) is None:
@@ -382,16 +382,14 @@ class BalanceController(SerialController):  # separate controller thread
         self.rfid_event_rfid = rfid_event.rfid
         self.read_until(rfid_event_expires)
 
-    @pyqtSlot(bytes, arrow.Arrow)
-    @exit_on_exception
-    def on_receive(self, data: bytes, timestamp: arrow.Arrow) -> None:
-        if not isinstance(data, bytes):
+    @pyqtSlot(str, arrow.Arrow)
+    def on_receive(self, data: str, timestamp: arrow.Arrow) -> None:
+        if not isinstance(data, str):
             self.critical("bad data: {}".format(repr(data)))
             return
         if not isinstance(timestamp, arrow.Arrow):
             self.critical("bad timestamp: {}".format(repr(timestamp)))
             return
-        data = data.decode("ascii")
         gre = CompiledRegexMemory()
         if self.command_queue:
             cmd = self.command_queue.pop(0)

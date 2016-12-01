@@ -108,8 +108,7 @@ Run the ``starfeeder`` program from within your virtual environment.
     for full details.
 
     If you use this method to run the graphical user interface (GUI) application,
-    **do not** close the console window (this will close the GUI app). Use the
-    method
+    **do not** close the console window (this will close the GUI app).
 
 Changelog
 ~~~~~~~~~
@@ -187,11 +186,32 @@ v0.2.6 (2016-11-24)
 -   Passwords obscured in debug-level database URLs.
 -   Top-level exception tracebacks go to log (like all others), not to print()
     using traceback.print_exc().
+-   BalanceController could send 'ICRNone', which is wrong; the frequency 10 Hz
+    was offered in the dialogue, but should have been 12. Validity check added.
 -   Bug workaround:
+    PROBLEM
     -   sometimes, ``WeightWhiskerTask.on_mass()`` received something that was
         not a ``MassEvent``. Not sure why (it doesn't look like anything else
         is ever sent); could this be a PySide signals bug?
+    ATTEMPT 1
     -   Workaround is to verify type on receipt (and complain loudly if wrong
         but ignore/continue).
--   BalanceController could send 'ICRNone', which is wrong; the frequency 10 Hz
-    was offered in the dialogue, but should have been 12. Validity check added.
+    ... no; irremediable bug in PySide (see development notes); it fails to
+        keep references to signal parameters, so sometimes they go AWOL.
+    ATTEMPT 2
+    -   Switched from PySide to PyQt5, and thus GPLv3 licensing.
+    -   Generally, this seems much better.
+    -   Even then, apparent corruption in "bytes" object passed from
+        SerialController.process_data()
+        -> SerialController.line_received
+        -> [change thread]
+        -> RfidController.on_receive
+        Sometimes the received bytes object is b'', not what was sent.
+        PyQt does some sort of autoconversion to C++ objects; see
+            http://pyqt.sourceforge.net/Docs/PyQt5/signals_slots.html
+        and the problem appears to go away by using an encapsulating Python
+        object... Not ideal!
+        Does it also affect str? No, str seems OK.
+        BUG REPRODUCED RELIABLY in pyqt5_signal_with_bytes.py.
+        Reported to PyQt mailing list on 2016-12-01.
+        SO FOR NOW: AVOID bytes OBJECTS IN PyQt5 SIGNALS.

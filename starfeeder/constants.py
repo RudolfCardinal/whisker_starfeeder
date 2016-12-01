@@ -68,7 +68,7 @@ By Rudolf Cardinal (rudolf@pobox.com).<br>
 Copyright &copy; 2015-2016 Rudolf Cardinal.
 For licensing details see LICENSE.txt.<br>
 External libraries used include Alembic; bitstring; PyInstaller; PySerial;
-Qt (via PySide); SQLAlchemy.
+Qt (via PyQt5); SQLAlchemy.
 """.format(
     VERSION=VERSION,
     WHISKER_URL="http://www.whiskercontrol.com/",
