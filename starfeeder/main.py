@@ -258,7 +258,7 @@ if __name__ == '__main__':
     # noinspection PyBroadException
     try:
         sys.exit(main())
-    except Exception as e:
+    except Exception as e:  # master top-level exception catcher
         log.critical("Exception caught at top level: {}".format(str(e)))
         log.critical(traceback.format_exc())
         # Don't use print_exc(); that might not get sent to the log.

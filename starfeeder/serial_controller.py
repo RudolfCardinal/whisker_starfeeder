@@ -103,11 +103,11 @@ class SerialReader(QObject, StatusMixin):  # separate reader thread
                 # do it in the raw.
                 data = self.serial_port.read(1)  # will wait until timeout
                 # ... will return b'' if no data
-                data += self.serial_port.read(self.serial_port.inWaiting())
+                data += self.serial_port.read(self.serial_port.inW  aiting())
                 if len(data) > 0:
                     self.process_data(data)
         # except serial.SerialException as e:
-        except Exception as e:
+        except Exception as e:  # serial port errors
             self.error("Serial port error: {}; stopping".format(str(e)))
             self.error(traceback.format_exc())
         # - We should catch serial.SerialException, but there is a bug in
@@ -287,7 +287,7 @@ class SerialWriter(QObject, StatusMixin):  # separate writer thread
                 self.debug(
                     "Sent {} bytes in {} microseconds ({} microseconds per "
                     "byte)".format(nbytes, microsec, microsec / nbytes))
-        except Exception as e:
+        except Exception as e:  # serial port errors
             self.error("Serial port error: {}; continuing".format(str(e)))
             self.error(traceback.format_exc())
 
@@ -511,7 +511,7 @@ class SerialOwner(QObject, StatusMixin):  # GUI thread
         self.info("Opening serial port: {}".format(self.serial_args))
         try:
             self.serial_port = serial.Serial(**self.serial_args)
-        except Exception as e:
+        except Exception as e:  # serial port errors
             self.error("Serial port error: {}; stopping".format(str(e)))
             self.error(traceback.format_exc())
             self.stop()
@@ -642,7 +642,7 @@ class SerialOwner(QObject, StatusMixin):  # GUI thread
             portinfo['[time_per_char_microsec]'] = time_per_char_microsec
             self.status("Serial port info: " + ", ".join(
                 "{}={}".format(k, v) for k, v in portinfo.items()))
-        except Exception as e:
+        except Exception as e:  # serial port errors
             self.warning(
                 "Serial port is unhappy - may be closed, or trying to read a "
                 "non-existent attribute; error: {}".format(str(e)))

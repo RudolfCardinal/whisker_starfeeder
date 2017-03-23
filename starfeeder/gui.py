@@ -187,7 +187,7 @@ class WrongDatabaseVersionWindow(QDialog):
             # noinspection PyCallByClass
             QMessageBox.about(self, "Success",
                               "Successfully upgraded database.")
-        except Exception as e:
+        except Exception as e:  # catch any database upgrade failure
             # noinspection PyCallByClass
             QMessageBox.about(
                 self, "Failure",

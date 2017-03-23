@@ -218,3 +218,9 @@ v0.2.6 (2016-11-24)
     BUG REPRODUCED RELIABLY in pyqt5_signal_with_bytes.py.
     Reported to PyQt mailing list on 2016-12-01.
     SO FOR NOW: AVOID bytes OBJECTS IN PyQt5 SIGNALS.
+
+PENDING
+
+-   2017-03-21: thinking back to ClearCommError() failure, via inWaiting()
+    function, called by SerialReader.start()...
+    -   See also https://github.com/pyserial/pyserial/blob/master/serial/threaded/__init__.py#L196
