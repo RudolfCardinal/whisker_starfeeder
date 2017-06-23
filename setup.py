@@ -8,7 +8,7 @@ Starfeeder setup file
 # http://python-packaging-user-guide.readthedocs.org/en/latest/distributing/
 # http://jtushman.github.io/blog/2013/06/17/sharing-code-across-applications-with-python/  # noqa
 
-from setuptools import setup  # , find_packages
+from setuptools import setup, find_packages
 from codecs import open
 from os import path
 # import pip
@@ -40,7 +40,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 # setup args
 # -----------------------------------------------------------------------------
 setup(
-    name='whisker_starfeeder',
+    name='starfeeder',
 
     version=VERSION,
 
@@ -88,35 +88,47 @@ setup(
 
     keywords='whisker rfid weigh balance starling',
 
-    packages=['starfeeder'],
+    packages=find_packages(),  # finds all the .py files in subdirectories
+    package_data={
+        'starfeeder': [
+            'alembic.ini',
+        ],
+        'starfeeder.alembic': [
+            'env.py',
+        ],
+        'starfeeder.alembic.versions': [
+            '*.py',
+        ],
+    },
 
     install_requires=[
         # ---------------------------------------------------------------------
         # Standard PyPI packages
         # ---------------------------------------------------------------------
-        'alembic>=0.8.3',  # migration tool for sqlalchemy
-        'arrow',  # better datetime
-        'attrdict',  # dictionaries with attribute-style access
-        'bitstring>=3.1.4',  # manipulation of binary numbers
+        # FIX PACKAGE NUMBERS EXACTLY, FOR CONSISTENCY.
+        'alembic==0.9.2',  # migration tool for sqlalchemy
+        'arrow==0.10.0',  # better datetime
+        'attrdict==2.0.0',  # dictionaries with attribute-style access
+        'bitstring==3.1.5',  # manipulation of binary numbers
         # 'PySide==1.2.4',  # Python interface to Qt
-        'PyQt5>=5.7',  # Python interface to Qt
-        'pyserial>=3.2.1',  # serial port library
-        'six>=1.10.0',  # Python 2/3 compatibility library
-        'SQLAlchemy>=1.0.12',  # database ORM
+        'PyQt5==5.8.2',  # Python interface to Qt
+        'pyserial==3.3',  # serial port library
+        'six==1.10.0',  # Python 2/3 compatibility library
+        'SQLAlchemy==1.1.11',  # database ORM
         # 'typing==3.5.2.2',  # part of stdlib in Python 3.5, but not 3.4
-        'whisker>=0.3.5',  # Whisker client library
+        'whisker==0.3.8',  # Whisker client library
 
         # ---------------------------------------------------------------------
         # Database connections (SQLite is built in)
         # ---------------------------------------------------------------------
         # MySQL:
-        'PyMySQL>=0.7.2',
+        'PyMySQL==0.7.11',
 
         # SQL Server / ODBC route:
-        'pyodbc>=3.0.10',
+        'pyodbc==4.0.17',
 
         # PostgreSQL:
-        'psycopg2>=2.6.1',
+        'psycopg2==2.7.1',
 
         # ---------------------------------------------------------------------
         # Specials: development versions

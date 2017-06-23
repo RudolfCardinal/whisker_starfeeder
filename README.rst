@@ -14,7 +14,7 @@ Author/licensing
 ~~~~~~~~~~~~~~~~
 
 By Rudolf Cardinal.
-Copyright |copy| 2015 Rudolf Cardinal.
+Copyright |copy| 2015-2017 Rudolf Cardinal.
 See LICENSE.txt.
 
 Single-folder binary distribution
@@ -26,7 +26,7 @@ That's it.
 Linux source installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-*End users should opt for the single-folder binary distribution instead.*
+*End users should consider the single-folder binary distribution instead.*
 
 Install
 -------
@@ -39,11 +39,7 @@ From a command prompt:
     python3 -m virtualenv /PATH/TO/MY/NEW/VIRTUALENV  # make a virtualenv
     source /PATH/TO/MY/NEW/VIRTUALENV/bin/activate  # activate the virtualenv
 
-    # pip install starfeeder --process-dependency-links  # install from PyPI -- NOT YET IMPLEMENTED
-
-    cd /MY/WORKING/DIR
-    git clone https://egret.psychol.cam.ac.uk/git/starfeeder  # Fetch code. Private for now.
-    pip install -e .  # Install from working directory into virtualenv.
+    pip install starfeeder  # install from PyPI
 
 Run
 ---
@@ -61,10 +57,10 @@ Windows source installation
 Install
 -------
 
-1.  You need to have Python 3 installed (which will come with ``pip``,
+1.  You need to have Python 3.5 installed (which will come with ``pip``,
     ``pyvenv``, and sometimes ``virtualenv``).
     Obtain it from https://www.python.org/ and install it. We'll suppose you've
-    installed Python at ``C:\Python34``.
+    installed Python at ``C:\Python35``.
 
 2.  On Windows 10, install a copy of ``cmake``, because PySide wants it.
     Also Qt. Also Git if you want to work with repositories directly.
@@ -80,7 +76,7 @@ Install
 
         C:\PATH\TO\MY\NEW\VIRTUALENV\Scripts\activate
 
-        pip install starfeeder --process-dependency-links
+        pip install starfeeder
 
 
 Run
@@ -218,6 +214,26 @@ v0.2.6 (2016-11-24)
     BUG REPRODUCED RELIABLY in pyqt5_signal_with_bytes.py.
     Reported to PyQt mailing list on 2016-12-01.
     SO FOR NOW: AVOID bytes OBJECTS IN PyQt5 SIGNALS.
+
+v0.2.11 (2017-06-22)
+
+-   Attempts to find/fix crash relating to very heavy multiple serial port
+    use, likely relating to hardware serial overflow as devices are not
+    properly buffered/flow-controlled.
+-   Changes to package structure so that it installs cleanly via
+    "pip install starfeeder", under Python 3.5 (PyQt5 not happy with Python
+    3.4, or at least its dependency "sip" isn't).
+-   Extra-space-typo instant-crash bug fixed (introduced since 2.6!).
+-   Bugfix: SerialController.__init__(): wasn't stashing self.output_encoding;
+    not relevant in actual use as this value was only read by send_bytes(),
+    which is in use only for debugging.
+-   Bugfix: mis-indexing of the RFID/balance display lines on the main GUI
+    page. (Was only relevant when a device, e.g. RFID, is present and
+    disabled.)
+-   Remove requirement for "twisted" in "whisker" package, so we can install
+    without compilers under Windows.
+-   Pin all package version numbers exactly, for consistency. [Note pyserial
+    now 3.3 (was 3.2.1).]
 
 PENDING
 

@@ -2,7 +2,7 @@
 # starfeeder/gui.py
 
 """
-    Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
+    Copyright (C) 2015-2017 Rudolf Cardinal (rudolf@pobox.com).
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -413,7 +413,8 @@ class BaseWindow(QMainWindow):  # GUI thread
             self.rfid_list = []
             self.rfid_id_to_obj = {}
             self.rfid_id_to_idx = {}
-            for i, rfid_config in enumerate(config.rfidreader_configs):
+            i = 0  # don't use enumerate(); NB disabled ones don't appear
+            for rfid_config in config.rfidreader_configs:
                 if not rfid_config.enabled:
                     continue
                 rfid = RfidOwner(rfid_config, callback_id=i, parent=self)
@@ -426,6 +427,7 @@ class BaseWindow(QMainWindow):  # GUI thread
                 self.rfid_list.append(rfid)
                 self.rfid_id_to_obj[rfid.reader_id] = rfid
                 self.rfid_id_to_idx[rfid.reader_id] = i
+                i += 1
 
             # -----------------------------------------------------------------
             # Balances
@@ -433,7 +435,8 @@ class BaseWindow(QMainWindow):  # GUI thread
             self.balance_list = []
             self.balance_id_to_obj = {}
             self.balance_id_to_idx = {}
-            for i, balance_config in enumerate(config.balance_configs):
+            i = 0  # as above: don't enumerate
+            for balance_config in config.balance_configs:
                 if not balance_config.enabled:
                     continue
                 if not balance_config.reader:
@@ -457,6 +460,7 @@ class BaseWindow(QMainWindow):  # GUI thread
                 self.balance_id_to_idx[balance.balance_id] = i
                 rfid = self.rfid_id_to_obj[balance_config.reader_id]
                 rfid.rfid_received.connect(balance.on_rfid)
+                i += 1
 
             # -----------------------------------------------------------------
             # Display

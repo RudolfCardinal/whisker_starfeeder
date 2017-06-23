@@ -2,7 +2,7 @@
 # starfeeder/serial_controller.py
 
 """
-    Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
+    Copyright (C) 2015-2017 Rudolf Cardinal (rudolf@pobox.com).
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -101,9 +101,12 @@ class SerialReader(QObject, StatusMixin):  # separate reader thread
                 # http://pyserial.readthedocs.org/en/latest/shortintro.html
                 # But we have to do some EOL stripping anyway, so let's just
                 # do it in the raw.
-                data = self.serial_port.read(1)  # will wait until timeout
+                # Note the method used at
+                # https://github.com/pyserial/pyserial/blob/master/serial/threaded/__init__.py#L196  # noqa
+
+                # read all that is there or wait for one byte (blocking)
+                data = self.serial.read(self.serial.in_waiting or 1)
                 # ... will return b'' if no data
-                data += self.serial_port.read(self.serial_port.inW  aiting())
                 if len(data) > 0:
                     self.process_data(data)
         # except serial.SerialException as e:
@@ -124,7 +127,7 @@ class SerialReader(QObject, StatusMixin):  # separate reader thread
         Adds the incoming data to any stored residual, splits it into lines,
         and sends each line on to the receiver.
         """
-        self.debug("data: {}".format(repr(data)))
+        # self.debug("data: {}".format(repr(data)))  # very verbose!
         timestamp = arrow.now()
         data = self.residual + data
         fragments = data.split(self.eol)
@@ -302,6 +305,7 @@ class SerialController(QObject, StatusMixin):  # separate controller thread
     def __init__(self, name: str, output_encoding: str = 'utf8',
                  parent: QObject = None, **kwargs) -> None:
         super().__init__(parent=parent, name=name, logger=log, **kwargs)
+        self.output_encoding = output_encoding
 
     @pyqtSlot(str, arrow.Arrow)
     def on_receive(self, data: str, timestamp: arrow.Arrow) -> None:

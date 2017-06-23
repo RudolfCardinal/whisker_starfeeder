@@ -2,7 +2,7 @@
 # starfeeder/balance.py
 
 """
-    Copyright (C) 2015-2015 Rudolf Cardinal (rudolf@pobox.com).
+    Copyright (C) 2015-2017 Rudolf Cardinal (rudolf@pobox.com).
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ class BalanceController(SerialController):  # separate controller thread
         # measurement cycle for that). Roughly.
         # So, for example, at 6 Hz we could have 5 per cycle.
         self.measurements_per_batch = math.ceil(
-            0.5 * self.balance_config.measurement_rate_hz)
+            0.5 * self.balance_config.measurement_rate_hz)  # type: int
         self.command_queue = []
         self.n_pending_measurements = 0
         self.rfid_event_rfid = None
